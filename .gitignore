@@ -2,26 +2,37 @@
 
 # dependencies
 /node_modules
+/frontend/node_modules
 
 # next.js
 /.next/
+/frontend/.next/
 /out/
 
 # production
 /build
+/frontend/build
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/.pnpm-debug.log*
 
 # env files
 .env*
+/frontend/.env*
 
 # vercel
 .vercel
+/frontend/.vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/frontend/*.tsbuildinfo
+/frontend/next-env.d.ts
