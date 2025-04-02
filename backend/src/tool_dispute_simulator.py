@@ -8,12 +8,21 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from highlight import CaseLawRetriever, DocumentParser, LLMHighlighter
 import logging
+from langchain_core.tools import tool
+from pydantic import BaseModel, Field
+import traceback
+
 
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Define schema for the simulation tool
+class SimulationToolSchema(BaseModel):
+    query: str = Field(..., description="User query about contract dispute simulation")
+    file_obj: Any = Field(..., description="File object containing the contract document")
 
 class SimulationState(TypedDict):
     query: str
@@ -149,13 +158,11 @@ def retrieve_cases_for_clauses(state: SimulationState, case_retriever: CaseLawRe
             cases_for_clause = []
             
             for idx in top_indices:
-                case_text = str(case_retriever.cases[idx]["value"])
-                formatted_case = format_case(case_text, format_prompt, client)
                 cases_for_clause.append({
-                    "case": case_text,
-                    "formatted_case": formatted_case,
+                    "case": str(case_retriever.cases[idx]["value"]),
                     "similarity_score": float(similarities[idx]),
-                    "index": idx
+                    "index": idx,
+                    "formatted_case": None  # We'll format only after selecting the best case
                 })
                 
             state["similar_cases"].append(cases_for_clause)
@@ -168,8 +175,8 @@ def retrieve_cases_for_clauses(state: SimulationState, case_retriever: CaseLawRe
         state["similar_cases"] = []
         return state
 
-def select_best_cases(state: SimulationState, case_retriever: CaseLawRetriever) -> SimulationState:
-    """Select the most relevant case for each set of similar cases"""
+def select_best_cases(state: SimulationState, case_retriever: CaseLawRetriever, format_prompt: str, client: OpenAI) -> SimulationState:
+    """Select the most relevant case for each set of similar cases and format them"""
     if state.get("error") or not state.get("similar_cases"):
         return state
         
@@ -196,8 +203,11 @@ def select_best_cases(state: SimulationState, case_retriever: CaseLawRetriever) 
                     best_case = case_data
             
             if best_case:
+                # Format only the selected case
+                formatted_case = format_case(best_case["case"], format_prompt, client)
+                best_case["formatted_case"] = formatted_case
                 state["selected_cases"].append(best_case)
-                logger.info(f"Selected best case with similarity: {highest_similarity}")
+                logger.info(f"Selected and formatted best case with similarity: {highest_similarity}")
             
         if not state["selected_cases"]:
             state["error"] = "Failed to select relevant cases"
@@ -238,8 +248,6 @@ def run_simulations(state: SimulationState, simulation_prompt: str, client: Open
                         2. 관련 판례:
                         {case_summary}
                       """
-            
-            
             
             messages = [
                 {"role": "system", "content": simulation_prompt},
@@ -301,7 +309,7 @@ def create_simulation_workflow(
     workflow.add_node("extract", lambda state: extract_toxic_clauses(state, llm_highlighter))
     workflow.add_node("select_clauses", lambda state: select_relevant_toxic_clauses(state, case_retriever.model))
     workflow.add_node("retrieve", lambda state: retrieve_cases_for_clauses(state, case_retriever, format_prompt, client))
-    workflow.add_node("select_cases", lambda state: select_best_cases(state, case_retriever))
+    workflow.add_node("select_cases", lambda state: select_best_cases(state, case_retriever, format_prompt, client))
     workflow.add_node("simulate", lambda state: run_simulations(state, simulation_prompt, client))
     
     # Add edges
@@ -378,8 +386,70 @@ def run_simulation_from_file(
         
     except Exception as e:
         logger.error(f"Uncaught error during graph execution: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {"error": f"실행 오류: {str(e)}"}
     
+# Tool decorator for direct usage from other modules
+@tool(args_schema=SimulationToolSchema, description="유저 쿼리와 계약 문서에 기반하여 계약 분쟁 시뮬레이션을 실행합니다.")
+def simulate_dispute_tool(query: str, file_obj: Any) -> Dict[str, Any]:
+    """Simulates a contract dispute scenario based on a contract document and user query."""
+    try:
+        logger.info(f"Running simulation for query: {query}")
+        logger.info(f"File object type: {type(file_obj)}")
+        
+        if not file_obj:
+            logger.error("No file object provided")
+            return {"error": "계약서 파일이 제공되지 않았습니다. 파일을 업로드하세요."}
+            
+        # Ensure file is at beginning position
+        try:
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+                logger.info("File pointer reset to beginning")
+        except Exception as e:
+            logger.error(f"Error resetting file pointer: {e}")
+        
+        # If file_obj is a string (file path), open the file
+        if isinstance(file_obj, str) and os.path.exists(file_obj):
+            logger.info(f"Opening file from path: {file_obj}")
+            file_obj = open(file_obj, 'rb')
+        
+        # Configuration paths
+        CASE_DB_PATH = "../datasets/case_db.json"
+        EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
+        SIMULATION_PROMPT_PATH = "../prompts/simulate_dispute.txt"
+        FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
+        HIGHLIGHT_PROMPT_PATH = "../prompts/highlight_prompt.txt"
+        
+        # Check if paths exist
+        for path in [CASE_DB_PATH, EMBEDDING_PATH, SIMULATION_PROMPT_PATH, FORMAT_PROMPT_PATH, HIGHLIGHT_PROMPT_PATH]:
+            if not os.path.exists(path):
+                logger.error(f"Path not found: {path}")
+                return {"error": f"필요한 파일을 찾을 수 없습니다: {path}"}
+        
+        # Run simulation
+        result = run_simulation_from_file(
+            file_obj,
+            query,
+            CASE_DB_PATH,
+            EMBEDDING_PATH,
+            SIMULATION_PROMPT_PATH, 
+            FORMAT_PROMPT_PATH,
+            HIGHLIGHT_PROMPT_PATH
+        )
+        
+        if "error" in result and result["error"]:
+            logger.error(f"Simulation error: {result['error']}")
+        else:
+            logger.info("Simulation completed successfully")
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error in simulation tool: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"error": f"시뮬레이션 실행 중 오류 발생: {str(e)}"}
 
 if __name__ == "__main__":
     # Configuration
@@ -442,6 +512,7 @@ if __name__ == "__main__":
             logger.error(f"Test PDF file not found at {TEST_PDF_PATH}")
         except Exception as e:
             logger.error(f"Test failed with error: {str(e)}")
+            logger.error(traceback.format_exc())
     
     # 테스트 실행
     logger.info("=== Starting Langgraph Simulation Test ===")
