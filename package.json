@@ -1,7 +1,0 @@
-{
-	"dependencies": {
-		"react-markdown": "^10.1.0",
-		"react-pdf-highlighter": "8.0.0-rc.0",
-		"react-pdf-highlighter-extended": "^8.1.0"
-	}
-}

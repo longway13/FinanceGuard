@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-      <script src="//mozilla.github.io/pdf.js/build/pdf.js"></script>
+      <script src="//mozilla.github.io/pdf.js@/build/pdf.js"></script>
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>

@@ -470,7 +470,7 @@ export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">PDF Viewer</h2>
+        <h2 className="text-lg font-semibold">Finance Product PDF</h2>
         <div className="flex items-center gap-4">
           <input
             type="file"
