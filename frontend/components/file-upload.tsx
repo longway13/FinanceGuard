@@ -93,29 +93,28 @@ export function FileUpload() {
     setIsUploading(true)
     setUploadProgress(0)
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 95) {
-          clearInterval(interval)
-          return prev
-        }
-        return prev + Math.floor(Math.random() * 10) + 1
-      })
-    }, 300)
-
     try {
-      // In a real application, you would upload the file to your server here
-      // For demo purposes, we'll simulate a successful upload after a delay
-      await new Promise((resolve) => setTimeout(resolve, 2500))
+      // FormData 생성
+      console.log(selectedFile)
+      const formData = new FormData()
+      formData.append('document', selectedFile)
 
-      // For demo purposes, we'll use the example.pdf from public/sample folder
-      const fileId = `sample_${Date.now()}`
+      // Next.js API 라우트로 파일 업로드
+      const response = await fetch('/api/pdf-upload', {
+        method: 'POST',
+        body: formData,
+      })
 
-      clearInterval(interval)
+      if (!response.ok) {
+        throw new Error('Upload failed')
+      }
+
+      const data = await response.json()
+      const { file_url } = data  // 백엔드 응답에서 file_url 추출
+      const fileId = `pdf_${Date.now()}`
+
+      // 업로드 성공 처리
       setUploadProgress(100)
-
-      // Add to uploaded files list
       setUploadedFiles((prev) => [...prev, selectedFile.name])
 
       toast({
@@ -124,18 +123,17 @@ export function FileUpload() {
         variant: "default",
       })
 
-      // Reset state
+      // 상태 초기화
       setSelectedFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
 
-      // Redirect to the dashboard page with the file ID
-      setTimeout(() => {
-        router.push(`/dashboard/${fileId}`)
-      }, 1000)
+      // 대시보드로 리다이렉트
+      router.push(`/dashboard/${fileId}?fileUrl=${encodeURIComponent(file_url)}`)
+
     } catch (error) {
-      clearInterval(interval)
+      console.error('Upload error:', error)
       toast({
         title: "Upload failed",
         description: "There was an error uploading your document. Please try again.",
@@ -143,6 +141,7 @@ export function FileUpload() {
       })
     } finally {
       setIsUploading(false)
+      setUploadProgress(0)
     }
   }
 

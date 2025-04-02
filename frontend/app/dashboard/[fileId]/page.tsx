@@ -4,8 +4,10 @@ import { Dashboard } from "@/components/dashboard"
 
 export default function DashboardPage({
   params,
+  searchParams,
 }: {
   params: { fileId: string }
+  searchParams: { fileUrl?: string }
 }) {
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -17,7 +19,7 @@ export default function DashboardPage({
       </header>
       <main className="flex-1 container px-4 py-6">
         <Suspense fallback={<DashboardSkeleton />}>
-          <Dashboard fileId={params.fileId} />
+          <Dashboard fileId={params.fileId} fileUrl={searchParams.fileUrl} />
         </Suspense>
       </main>
     </div>

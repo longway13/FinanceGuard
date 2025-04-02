@@ -374,6 +374,7 @@ export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
       }
 
       const data = await response.json();
+      console.log(data)
       return data;
     } catch (error) {
       console.error('Error uploading PDF:', error);
@@ -458,6 +459,14 @@ export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
     }
   }
 
+  if (!url) {
+    return (
+      <div className="w-full h-full rounded-lg border flex items-center justify-center">
+        <p className="text-muted-foreground">No PDF document loaded</p>
+      </div>
+    )
+  }
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex items-center justify-between p-4 border-b">
@@ -493,7 +502,7 @@ export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
 
       <div className="w-full h-full rounded-lg border relative">
         <PdfLoader
-          document={pdfUrl}
+          document={url}
         >
           {(pdfDocument) => (
             <PdfHighlighter

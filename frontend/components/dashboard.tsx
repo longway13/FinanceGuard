@@ -10,8 +10,9 @@ import { useToast } from "@/hooks/use-toast"
 import { mockDocumentData } from "@/lib/mock-data"
 import type { DisputeCase } from "@/lib/types"
 
-export function Dashboard({ fileId }: { fileId: string }) {
+export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: string }) {
   const [selectedText, setSelectedText] = useState("")
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined)
   const [documentData, setDocumentData] = useState({
     overview: {
       summary: "This is a sample summary of the financial product...",
@@ -83,6 +84,13 @@ export function Dashboard({ fileId }: { fileId: string }) {
     loadData()
   }, [fileId, toast])
 
+  useEffect(() => {
+    // PDF URL 설정
+    if (fileUrl) {
+      setPdfUrl(fileUrl)
+    }
+  }, [fileUrl])
+
   const handleTextSelection = (text: string) => {
     setSelectedText(text)
   }
@@ -90,7 +98,7 @@ export function Dashboard({ fileId }: { fileId: string }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
-        <PdfViewer fileId={fileId} onTextSelect={handleTextSelection} isLoading={isLoading} />
+        <PdfViewer fileId={fileId} onTextSelect={handleTextSelection} isLoading={isLoading} url={pdfUrl} />
       </div>
       <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
         <Tabs defaultValue="overview" className="flex flex-col h-full">

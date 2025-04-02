@@ -1,11 +1,15 @@
 import requests
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS  # CORS 추가
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from basic import *
 import json
 import os
 from werkzeug.utils import secure_filename
+import boto3
+from botocore.config import Config
+from datetime import datetime
 
 # PDF 파일을 외부 파싱 API를 통해 처리하는 클래스
 class DocumentParser:
@@ -101,6 +105,7 @@ class LLMSummarizer:
 
 # DocumentParser와 LLMSummarizer를 조합해 PDF를 처리하는 클래스
 class PDFProcessor:
+
     def __init__(self, parser: DocumentParser, summarizer: LLMSummarizer):
         self.parser = parser
         self.summarizer = summarizer
@@ -128,12 +133,23 @@ class PDFProcessor:
 
 # Flask 웹 서버 생성
 app = Flask(__name__)
-
+CORS(app)
 # 실제 API 키로 변경하세요.
 API_KEY = "up_CcTX5JkVdEfu3Slmphq4HkAwdNhrh"
 document_parser = DocumentParser(API_KEY)
 llm_summarizer = LLMSummarizer()
 pdf_processor = PDFProcessor(document_parser, llm_summarizer)
+pdf_counter = 0
+
+# S3 설정
+BUCKET_NAME = os.environ.get('BUCKET_NAME', 'wetube-gwanwoo')
+s3 = boto3.client('s3',
+    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    region_name='ap-northeast-2',
+    config=Config(signature_version='s3v4')
+)
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -150,45 +166,109 @@ def index():
     </html>
     '''
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/pdf-upload', methods=['POST'])
 def upload_pdf():
     """
-    프론트엔드에서 PDF 파일(FormData의 'document' 필드)이 전송되면 처리합니다.
+    프론트엔드에서 PDF 파일 업로드 테스트를 위한 엔드포인트
     """
-    if 'document' not in request.files:
+    global pdf_counter  # 전역 변수 사용
+    print("Upload endpoint called")  # 요청이 들어왔는지 확인
+    print(request.files)
+    if 'file' not in request.files:
+        print("No document in request.files")  # 파일이 없는 경우 로깅
         return jsonify({"error": "파일이 전송되지 않았습니다."}), 400
     
-    file = request.files['document']
+    file = request.files['file']
+    print(f"Received file: {file.filename}")  # 파일 이름 로깅
     
-    # Save uploaded file to disk
-    upload_dir = "uploads"
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(upload_dir, filename)
-    file.save(file_path)
-
-    # Save file path to a JSON file
-    json_file_path = "uploaded_files.json"
-    if os.path.exists(json_file_path):
-        with open(json_file_path, "r", encoding="utf-8") as f:
-            file_list = json.load(f)
-    else:
-        file_list = []
-    file_list.append(file_path)
-    with open(json_file_path, "w", encoding="utf-8") as f:
-        json.dump(file_list, f, ensure_ascii=False, indent=2)
-
-    # Reset file pointer before further processing
-    file.seek(0)
+    if file.filename == '':
+        print("No selected file")  # 파일이 선택되지 않은 경우 로깅
+        return jsonify({"error": "선택된 파일이 없습니다."}), 400
+    
+    if not file.filename.lower().endswith('.pdf'):
+        print(f"Invalid file type: {file.filename}")  # 잘못된 파일 타입 로깅
+        return jsonify({"error": "PDF 파일만 업로드 가능합니다."}), 400
     
     try:
-        summary = pdf_processor.process_pdf(file)
+        # 파일 저장
+        filename = secure_filename(file.filename)
+
+        # Save file to S3
+        s3_path = f"pdf/{pdf_counter}"
+        s3.upload_fileobj(
+            file,
+            BUCKET_NAME,
+            s3_path,
+            ExtraArgs={
+                'ContentType': 'application/pdf',
+                'ACL': 'public-read'
+            }
+        )
+        # Sample file url
+        file_path = f"https://wetube-gwanwoo.s3.ap-northeast-2.amazonaws.com/pdf/{pdf_counter}"
+        pdf_counter += 1  # 카운터 증가
         
-        response_data = json.dumps({"summary": summary}, ensure_ascii=False)
-        return Response(response_data, content_type="application/json; charset=utf-8")
+        response_data = {
+            "status": "success",
+            "message": "Successfully uploaded file",
+            "filename": filename,
+            "file_url": file_path,
+            "pdf_id": f"PDF_{pdf_counter}"
+        }
+        
+        return jsonify(response_data), 200
+        
     except Exception as e:
+        print(f"Error during file upload: {str(e)}")  # 에러 로깅
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/pdf/upload', methods=['POST'])
+def upload_file():
+    if 'document' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['document']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file:
+        try:
+            # 파일명 생성 (타임스탬프 추가하여 유니크하게)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            original_filename = secure_filename(file.filename)
+            filename = f"{timestamp}_{original_filename}"
+            
+            # S3에 업로드할 경로
+            s3_path = f"pdf/{filename}"
+            
+            # S3에 파일 업로드
+            s3.upload_fileobj(
+                file,
+                BUCKET_NAME,
+                s3_path,
+                ExtraArgs={
+                    'ContentType': 'application/pdf',
+                    'ACL': 'public-read'  # 파일을 공개적으로 읽을 수 있게 설정
+                }
+            )
+            
+            # presigned URL 생성 (1시간 유효)
+            file_url = generate_presigned_url(BUCKET_NAME, s3_path)
+            
+            if not file_url:
+                return jsonify({'error': 'Failed to generate file URL'}), 500
+
+            return jsonify({
+                'message': 'File uploaded successfully',
+                'file_url': file_url,
+                'filename': filename
+            }), 200
+
+        except Exception as e:
+            print(f"Error during file upload: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+
+    return jsonify({'error': 'File upload failed'}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
