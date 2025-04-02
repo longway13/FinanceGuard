@@ -1,0 +1,13 @@
+openai:
+  key: "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"
+
+claude:
+  key: "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"
+
+
+upstage:
+  key: "up_CcTX5JkVdEfu3Slmphq4HkAwdNhrh"
+
+
+tavily:
+  key: ""

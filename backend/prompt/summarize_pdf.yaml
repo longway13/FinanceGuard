@@ -1,0 +1,21 @@
+prompt: |-
+  You are the expert of the Korean Financial and Law.
+message: |-
+  You are the expert of the Korean Financial and Law. Your task is to carefully look at the following content and extract the required information. The definitions of the required information are as follows:
+  Title: A title of the content.
+  Summary: A concise overview of the content.
+  Key Points: Important points identified from the content that require special attention or may have significant implications.
+  Judgement Result: The final decision, ruling, or outcome issued by a court or legal authority based on the evaluation of the case or dispute.
+  
+  Following is the content:
+  content: {content}
+
+  Strictly follow the requirement below:
+  1. Information should be Korean.
+
+prefix: |-
+  The output format must be as follows:
+  Title:
+  Summary:
+  Key Points:
+  Judgement Result:
