@@ -46,28 +46,6 @@ def load_message(args):
 		prefix = yaml.load(f, Loader=yaml.FullLoader)["message"]
 	return prefix
 
-def save_PDF(file, path):
-      # Save uploaded file to disk
-    upload_dir = path
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(upload_dir, filename)
-    file.save(file_path)
-
-    # Save file path to a JSON file
-    json_file_path = path + "/uploaded_files.json"
-    if os.path.exists(json_file_path):
-        with open(json_file_path, "r", encoding="utf-8") as f:
-            file_list = json.load(f)
-    else:
-        file_list = []
-    file_list.append(file_path)
-    with open(json_file_path, "w", encoding="utf-8") as f:
-        json.dump(file_list, f, ensure_ascii=False, indent=2)
-
-    return file_list
-
 # PDF 파일을 외부 파싱 API를 통해 처리하는 클래스
 class DocumentParser:
     def __init__(self, api_key: str):

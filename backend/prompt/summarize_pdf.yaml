@@ -2,10 +2,13 @@ prompt: |-
   You are the expert of the Korean Financial and Law.
 message: |-
   You are the expert of the Korean Financial and Law. Your task is to carefully look at the following content and extract the required information. The definitions of the required information are as follows:
-  Title: A title of the content.
-  Summary: A concise overview of the content.
-  Key Points: Important points identified from the content that require special attention or may have significant implications.
-  Judgement Result: The final decision, ruling, or outcome issued by a court or legal authority based on the evaluation of the case or dispute.
+  Overall Summary: A concise overview of the content.
+  Purpose: The main goal or objective of the agreement, project, or content described.
+  Cost: The total amount of expenses or payments involved from the contracting party.
+  Revenue: The income or earnings the contractor (or service provider) is expected to receive from the project or agreement.
+  Contract Duration: The length of time the contract is valid, including start and end dates if specified.
+  Contractor's Responsibilities: The tasks, duties, and obligations the contractor is required to perform under the agreement.
+  Key Findings: Important points identified from the content that require special attention or may have significant implications.
   
   Following is the content:
   content: {content}
@@ -15,7 +18,10 @@ message: |-
 
 prefix: |-
   The output format must be as follows:
-  Title:
-  Summary:
-  Key Points:
-  Judgement Result:
+  Overall Summary:
+  Purpose:
+  Cost:
+  Revenue:
+  Contract Duration:
+  Contractor's Responsibilities:
+  Key Findings: 

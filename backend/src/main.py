@@ -87,14 +87,14 @@ def highlight():
     """
     Prompt와 PDF를 받아서 PDF 내 하이라이트한 독소 조항 및 뭐 추출하는 dummy 함수.
     """
-    API_KEY = "up_CcTX5JkVdEfu3Slmphq4HkAwdNhrh"
-    PROMPT_PATH = "web/backend/prompt/highlight_prompt.txt"
-    CASE_DB_PATH = "web/backend/datasets/case_db.json"
+    API_KEY = get_upstage_api_key()
+    PROMPT_PATH = "prompt/highlight_prompt.txt"
+    CASE_DB_PATH = "datasets/case_db.json"
     try:
         document_parser = DocumentParser(API_KEY)
         case_retriever = CaseLawRetriever(
             case_db_path=CASE_DB_PATH,
-            embedding_path="data/precomputed_embeddings.npz"
+            embedding_path="datasets/precomputed_embeddings.npz"
         )
         llm_highlighter = LLMHighlighter(
             prompt_path=PROMPT_PATH,
