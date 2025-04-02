@@ -88,13 +88,6 @@ export interface CasesResponse {
 }
 
 // PDF Upload API Types
-export interface PdfUploadRequest {
-  file: File;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-}
-
 export interface PdfUploadResponse {
   pdfId: string;
   url: string;
