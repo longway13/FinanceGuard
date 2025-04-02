@@ -1,191 +1,528 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Search, ZoomIn, ZoomOut } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useState, useRef } from "react"
+import {
+  PdfLoader,
+  PdfHighlighter,
+  Highlight,
+  TextHighlight,
+  AreaHighlight,
+  useHighlightContainerContext,
+  usePdfHighlighterContext,
+  MonitoredHighlightContainer,
+  Tip,
+  PdfHighlighterUtils,
+  ViewportHighlight,
+} from "react-pdf-highlighter-extended"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
+import { Trash2, Camera, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { Document, Page } from 'react-pdf';
-import { pdfjs } from 'react-pdf';
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
 
 interface PdfViewerProps {
   fileId: string
-  onTextSelect: (text: string) => void
-  isLoading: boolean
+  onTextSelect?: (text: string) => void
+  isLoading?: boolean
+  url?: string
 }
 
-export function PdfViewer({ fileId, onTextSelect, isLoading }: PdfViewerProps) {
-  const [numPages, setNumPages] = useState<number>();
-  const [pageNumber, setPageNumber] = useState(1)
-  const [totalPages, setTotalPages] = useState(10) // Mock total pages
-  const [scale, setScale] = useState(1.0)
-  const [searchText, setSearchText] = useState("")
-  const [isLoadingPdf, setIsLoadingPdf] = useState(true)
+// Custom highlight interface with additional properties
+interface CustomHighlight extends Omit<Highlight, 'position'> {
+  comment?: string
+  category?: "default" | "important" | "question"
+  imageUrl?: string
+  position: {
+    boundingRect: {
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+      width: number
+      height: number
+      pageNumber: number
+    }
+    rects: Array<any>
+  }
+}
+
+interface AreaAnalysisResponse {
+  text?: string
+  analysis?: string
+  error?: string
+}
+
+// 백엔드 응답을 위한 인터페이스 추가
+interface ToxicClauseResponse {
+  text: string;
+  position: {
+    pageNumber: number;
+    boundingRect: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      height: number;
+    };
+  };
+}
+
+// Function to send area screenshot to backend
+async function sendAreaToBackend(data: {
+  image: string
+  position: {
+    boundingRect: {
+      x1: number
+      y1: number
+      x2: number
+      y2: number
+    }
+    pageNumber: number
+  }
+}): Promise<AreaAnalysisResponse> {
+  try {
+    const response = await fetch('/api/analyze-area', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to analyze area')
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error analyzing area:', error)
+    throw error
+  }
+}
+
+// Highlight popup component
+const HighlightPopup = ({ highlight }: { highlight: ViewportHighlight<CustomHighlight> }) => {
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-2 border">
+      <div className="flex items-center gap-2">
+        <span className="text-sm">{highlight.content?.text}</span>
+        {highlight.comment && (
+          <div className="text-xs text-muted-foreground">{highlight.comment}</div>
+        )}
+        {highlight.imageUrl && (
+          <img 
+            src={highlight.imageUrl} 
+            alt="Captured area" 
+            className="max-w-[200px] h-auto rounded border"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Custom highlight container
+const HighlightContainer = ({ 
+  editHighlight,
+  onAreaCapture,
+}: { 
+  editHighlight: (id: string, edit: Partial<CustomHighlight>) => void
+  onAreaCapture: (image: string, position: any) => void
+}) => {
+  const {
+    highlight,
+    isScrolledTo,
+    screenshot,
+    viewportToScaled,
+  } = useHighlightContainerContext<CustomHighlight>()
+
+  const [isCapturing, setIsCapturing] = useState(false)
   const { toast } = useToast()
 
-  // 파일 ID에 따라 로드할 PDF URL 결정
-  const pdfUrl = fileId.startsWith("sample_")
-    ? "/sample/example.pdf" // public/sample 폴더 내에 있는 mock PDF 파일
-    : `/api/pdf/${fileId}`  // 추후 실제 파일 경로를 처리할 API 엔드포인트
+  const isTextHighlight = !Boolean(highlight.content?.image)
 
-  useEffect(() => {
-    // fileId 변경 시 상태 초기화
-    setIsLoadingPdf(true)
+  let highlightColor = "rgba(255, 226, 143, 0.3)"
+  if (highlight.category === "important") {
+    highlightColor = "rgba(239, 90, 104, 0.3)"
+  } else if (highlight.category === "question") {
+    highlightColor = "rgba(154, 208, 220, 0.3)"
+  }
 
-    // PDF 로딩 시뮬레이션 (실제 구현 시 PDF 로더 사용)
-    const timer = setTimeout(() => {
-      setIsLoadingPdf(false)
-
-      // 모의 데이터를 위한 페이지 수 설정
-      if (fileId.startsWith("sample_")) {
-        setTotalPages(15)
-      }
+  const handleAreaCapture = async () => {
+    try {
+      setIsCapturing(true)
+      const image = screenshot(highlight.position.boundingRect)
+      const scaledPosition = viewportToScaled(highlight.position.boundingRect)
+      
+      await onAreaCapture(image, {
+        boundingRect: scaledPosition,
+        pageNumber: highlight.position.pageNumber,
+      })
 
       toast({
-        title: "Document loaded",
-        description: "Financial document has been loaded successfully",
+        title: "Area captured",
+        description: "The selected area has been captured and sent for analysis",
       })
-    }, 1500)
-
-    return () => clearTimeout(timer)
-  }, [fileId, toast])
-
-  const handlePreviousPage = () => {
-    setPageNumber((prevPageNumber) => Math.max(prevPageNumber - 1, 1))
-    // 실제 구현 시 PDF 뷰어의 페이지 이동 제어
+    } catch (error) {
+      toast({
+        title: "Error capturing area",
+        description: "Failed to capture and analyze the selected area",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCapturing(false)
+    }
   }
 
-  const handleNextPage = () => {
-    setPageNumber((prevPageNumber) => Math.min(prevPageNumber + 1, totalPages))
-    // 실제 구현 시 PDF 뷰어의 페이지 이동 제어
+  const component = isTextHighlight ? (
+    <TextHighlight
+      highlight={highlight}
+      isScrolledTo={isScrolledTo}
+      style={{ background: highlightColor }}
+    />
+  ) : (
+    <AreaHighlight
+      highlight={highlight}
+      isScrolledTo={isScrolledTo}
+      style={{ background: highlightColor }}
+    />
+  )
+
+  const highlightTip: Tip = {
+    position: highlight.position,
+    content: (
+      <div className="bg-white shadow-lg rounded-lg p-2 border">
+        <div className="flex items-center gap-2">
+          <HighlightPopup highlight={highlight} />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAreaCapture}
+            disabled={isCapturing}
+          >
+            {isCapturing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+    ),
   }
 
-  const handleZoomIn = () => {
-    setScale((prevScale) => Math.min(prevScale + 0.2, 3))
-    // 실제 구현 시 PDF 뷰어의 줌 제어
+  return (
+    <MonitoredHighlightContainer
+      highlightTip={highlightTip}
+      key={highlight.id}
+    >
+      {component}
+    </MonitoredHighlightContainer>
+  )
+}
+
+// Selection tip component
+const SelectionTip = () => {
+  const { getCurrentSelection } = usePdfHighlighterContext()
+
+  const createHighlight = (category: CustomHighlight["category"]) => {
+    const selection = getCurrentSelection()
+    if (selection) {
+      const highlight = {
+        content: selection.content,
+        position: selection.position,
+        category,
+        id: Math.random().toString(16).slice(2),
+      }
+      selection.emit("finishSelection", highlight)
+    }
   }
 
-  const handleZoomOut = () => {
-    setScale((prevScale) => Math.max(prevScale - 0.2, 0.6))
-    // 실제 구현 시 PDF 뷰어의 줌 제어
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-2 border">
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          onClick={() => createHighlight("default")}
+        >
+          Highlight
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => createHighlight("important")}
+        >
+          Important
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => createHighlight("question")}
+        >
+          Question
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// 백엔드 통신 함수 추가
+async function analyzeToxicClauses(pdfId: string): Promise<ToxicClauseResponse[]> {
+  try {
+    const response = await fetch(`/api/analyze-toxic-clauses?pdfId=${pdfId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to analyze toxic clauses');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error analyzing toxic clauses:', error);
+    throw error;
   }
+}
 
-  const handleTextSelection = () => {
-    // 실제 구현 시 PDF 뷰어에서 선택한 텍스트 가져오기
-    const financialTerms = [
-      "The annual management fee is 1.5% of assets under management.",
-      "Early redemption penalties apply for withdrawals within the first 3 years.",
-      "Market risk may result in substantial loss of principal.",
-      "This product is not FDIC insured and may lose value.",
-      "The liquidity of this investment is limited, with quarterly redemption windows.",
-      "Performance fees of 20% apply to returns above the benchmark.",
-    ]
+export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
+  const [highlights, setHighlights] = useState<CustomHighlight[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const highlighterUtilsRef = useRef<PdfHighlighterUtils>(null)
+  const { toast } = useToast()
 
-    const selectedText = financialTerms[Math.floor(Math.random() * financialTerms.length)]
-    onTextSelect(selectedText)
+  // 하이라이트 생성 함수
+  const createHighlight = (text: string, position: {
+    pageNumber: number;
+    boundingRect: {
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      width: number;
+      height: number;
+    };
+  }) => {
+    const newHighlight: CustomHighlight = {
+      id: `highlight-${Date.now()}`,
+      position: {
+        boundingRect: {
+          ...position.boundingRect,
+          pageNumber: position.pageNumber
+        },
+        rects: []
+      },
+      content: {
+        text: text
+      },
+      comment: `위험 조항: ${text}`,
+      category: "important"
+    };
 
-    toast({
-      title: "Text selected",
-      description: "The selected text has been added to the chatbot",
-    })
-  }
+    setHighlights(prev => [...prev, newHighlight]);
+  };
 
+  // 독소 조항 분석 및 하이라이트 함수
+  const analyzeAndHighlightToxicClauses = async () => {
+    try {
+      const toxicClauses = await analyzeToxicClauses(fileId);
+      
+      // 기존 하이라이트 초기화
+      setHighlights([]);
+      
+      // 각 독소 조항에 대해 하이라이트 생성
+      toxicClauses.forEach(clause => {
+        createHighlight(clause.text, clause.position);
+      });
+
+      toast({
+        title: "분석 완료",
+        description: `${toxicClauses.length}개의 위험 조항이 발견되었습니다.`,
+      });
+    } catch (error) {
+      toast({
+        title: "분석 실패",
+        description: "위험 조항 분석 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 테스트를 위한 버튼 추가
   const handleSearch = () => {
-    if (!searchText) return
+    analyzeAndHighlightToxicClauses();
+  };
 
-    toast({
-      title: "Searching document",
-      description: `Searching for "${searchText}" in the document`,
-    })
+  const uploadPdf = async (file: File) => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-    // 실제 구현 시 PDF 내 텍스트 검색 처리
-  }
-  
+      const formData = new FormData();
+      formData.append('file', file);
 
-  if (isLoading || isLoadingPdf) {
+      const response = await fetch('/api/pdf-upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload PDF');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      setError(error instanceof Error ? error.message : 'Failed to upload PDF');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const result = await uploadPdf(file);
+        console.log('PDF uploaded successfully:', result);
+        // TODO: 업로드 성공 후 처리 (예: PDF 뷰어 업데이트)
+      } catch (error) {
+        console.error('Failed to upload PDF:', error);
+      }
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between p-2 border-b">
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-8 w-24 rounded-md" />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center bg-muted/20">
-          <div className="text-center space-y-4">
-            <Skeleton className="h-[400px] w-[300px] mx-auto" />
-            <p className="text-muted-foreground">Loading document...</p>
-          </div>
-        </div>
+      <div className="w-full h-full rounded-lg border">
+        <Skeleton className="w-full h-full" />
       </div>
     )
   }
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }): void {
-    setNumPages(numPages);
+
+  const addHighlight = (highlight: CustomHighlight) => {
+    setHighlights([...highlights, highlight])
+    if (highlight.content?.text && onTextSelect) {
+      onTextSelect(highlight.content.text)
+    }
   }
+
+  const updateHighlight = (id: string, edit: Partial<CustomHighlight>) => {
+    setHighlights(
+      highlights.map((h) => (h.id === id ? { ...h, ...edit } : h))
+    )
+  }
+
+  const handleAreaCapture = async (image: string, position: any) => {
+    try {
+      const result = await sendAreaToBackend({
+        image,
+        position,
+      })
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      // Update the highlight with the analysis result
+      const highlightToUpdate = highlights.find(
+        h => 
+          h.position.pageNumber === position.pageNumber &&
+          h.position.boundingRect.x1 === position.boundingRect.x1 &&
+          h.position.boundingRect.y1 === position.boundingRect.y1
+      )
+
+      if (highlightToUpdate) {
+        updateHighlight(highlightToUpdate.id, {
+          imageUrl: image,
+          comment: result.analysis,
+        })
+      }
+
+      toast({
+        title: "Analysis complete",
+        description: result.analysis || "Area has been analyzed successfully",
+      })
+    } catch (error) {
+      console.error('Error handling area capture:', error)
+      toast({
+        title: "Analysis failed",
+        description: "Failed to analyze the captured area",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-2 border-b">
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" onClick={handlePreviousPage} disabled={pageNumber <= 1}>
-            <ChevronLeft className="h-4 w-4" />
-            <span className="sr-only">Previous page</span>
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleNextPage} disabled={pageNumber >= totalPages}>
-            <ChevronRight className="h-4 w-4" />
-            <span className="sr-only">Next page</span>
-          </Button>
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">
-            Page {pageNumber} of {totalPages}
-          </span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
-            <span className="sr-only">Zoom out</span>
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
-            <span className="sr-only">Zoom in</span>
-          </Button>
-          <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="h-8 w-32 pl-8"
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-            <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
-          </div>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-lg font-semibold">PDF Viewer</h2>
+        <div className="flex items-center gap-4">
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={handleFileChange}
+            className="hidden"
+            id="pdf-upload"
+          />
+          <label
+            htmlFor="pdf-upload"
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+          >
+            Upload PDF
+          </label>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden bg-muted/20 flex justify-center" onClick={handleTextSelection}>
-        <div>
-        <Document file={pdfUrl} onLoadSuccess={onDocumentLoadSuccess}>
-          <Page pageNumber={pageNumber} />
-        </Document>
-        <p>
-          Page {pageNumber} of {numPages}
-        </p>
-      </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center p-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 text-red-500">
+          {error}
+        </div>
+      )}
+
+      <div className="w-full h-full rounded-lg border relative">
+        <PdfLoader
+          document={pdfUrl}
+        >
+          {(pdfDocument) => (
+            <PdfHighlighter
+              pdfDocument={pdfDocument}
+              enableAreaSelection={(event) => event.altKey}
+              highlights={highlights}
+              onSelectionFinished={(position, content) => {
+                addHighlight({
+                  id: Math.random().toString(16).slice(2),
+                  content,
+                  position,
+                  comment: "",
+                  category: "default",
+                })
+              }}
+              selectionTip={<SelectionTip />}
+              utilsRef={(_utils) => {
+                if (highlighterUtilsRef.current) {
+                  highlighterUtilsRef.current = _utils
+                }
+              }}
+            >
+              <HighlightContainer 
+                editHighlight={updateHighlight}
+                onAreaCapture={handleAreaCapture}
+              />
+            </PdfHighlighter>
+          )}
+        </PdfLoader>
       </div>
     </div>
   )
