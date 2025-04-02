@@ -36,3 +36,7 @@ yarn-error.log*
 next-env.d.ts
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
+
+# datasets
+/backend/datasets/case_db.json
+/backend/datasets/precomputed_embeddings.npz
