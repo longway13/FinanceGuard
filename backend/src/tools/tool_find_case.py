@@ -4,9 +4,10 @@ import numpy as np
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-from highlight import CaseLawRetriever
+from src.tools.highlight import CaseLawRetriever
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
+from src.config import CASE_DB_PATH, EMBEDDING_PATH, FORMAT_PROMPT_PATH
 
 load_dotenv()
 
@@ -152,12 +153,7 @@ def find_case_tool(query: str) -> List[str]:
     try:
         print(f"Finding cases for query: {query}")
         
-        # Configuration paths
-        CASE_DB_PATH = "../datasets/case_db.json"
-        EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
-        FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
-        
-        # Create the case query workflow
+        # Create the case query workflow using paths from config
         graph = create_case_query_workflow(
             case_db_path=CASE_DB_PATH,
             embedding_path=EMBEDDING_PATH,
@@ -172,25 +168,21 @@ def find_case_tool(query: str) -> List[str]:
         return [f"Case search error: {str(e)}"]
 
 # Usage example
-if __name__ == "__main__":
-    CASE_DB_PATH = "../datasets/case_db.json"
-    EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
-    FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
+# if __name__ == "__main__":
+#     print("Creating case query workflow...")
+#     graph = create_case_query_workflow(
+#         case_db_path=CASE_DB_PATH,
+#         embedding_path=EMBEDDING_PATH,
+#         format_prompt_path=FORMAT_PROMPT_PATH
+#     )
     
-    print("Creating case query workflow...")
-    graph = create_case_query_workflow(
-        case_db_path=CASE_DB_PATH,
-        embedding_path=EMBEDDING_PATH,
-        format_prompt_path=FORMAT_PROMPT_PATH
-    )
+#     # 예제 쿼리
+#     query = "집에 강도가 들어왔어"
+#     print(f"\nProcessing query: '{query}'")
+#     results = query_cases(query, graph)
     
-    # 예제 쿼리
-    query = "집에 강도가 들어왔어"
-    print(f"\nProcessing query: '{query}'")
-    results = query_cases(query, graph)
-    
-    print("Given query:", query)
-    for idx, result in enumerate(results, 1):
-        print(f"\nCase {idx}:")
-        print(result)
-        print("-" * 50)
+#     print("Given query:", query)
+#     for idx, result in enumerate(results, 1):
+#         print(f"\nCase {idx}:")
+#         print(result)
+#         print("-" * 50)

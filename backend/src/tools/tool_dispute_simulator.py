@@ -6,11 +6,18 @@ import json
 import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
-from highlight import CaseLawRetriever, DocumentParser, LLMHighlighter
+from src.tools.highlight import CaseLawRetriever, DocumentParser, LLMHighlighter
 import logging
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 import traceback
+from ..config import (
+    CASE_DB_PATH,
+    EMBEDDING_PATH,
+    SIMULATION_PROMPT_PATH,
+    FORMAT_PROMPT_PATH,
+    HIGHLIGHT_PROMPT_PATH
+)
 
 
 load_dotenv()
@@ -390,6 +397,25 @@ def run_simulation_from_file(
         logger.error(traceback.format_exc())
         return {"error": f"실행 오류: {str(e)}"}
     
+def convert_numpy_types(obj):
+    """
+    Recursively convert numpy types to native Python types for JSON serialization
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
 # Tool decorator for direct usage from other modules
 @tool(args_schema=SimulationToolSchema, description="유저 쿼리와 계약 문서에 기반하여 계약 분쟁 시뮬레이션을 실행합니다.")
 def simulate_dispute_tool(query: str, file_obj: Any) -> Dict[str, Any]:
@@ -415,20 +441,7 @@ def simulate_dispute_tool(query: str, file_obj: Any) -> Dict[str, Any]:
             logger.info(f"Opening file from path: {file_obj}")
             file_obj = open(file_obj, 'rb')
         
-        # Configuration paths
-        CASE_DB_PATH = "../datasets/case_db.json"
-        EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
-        SIMULATION_PROMPT_PATH = "../prompts/simulate_dispute.txt"
-        FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
-        HIGHLIGHT_PROMPT_PATH = "../prompts/highlight_prompt.txt"
-        
-        # Check if paths exist
-        for path in [CASE_DB_PATH, EMBEDDING_PATH, SIMULATION_PROMPT_PATH, FORMAT_PROMPT_PATH, HIGHLIGHT_PROMPT_PATH]:
-            if not os.path.exists(path):
-                logger.error(f"Path not found: {path}")
-                return {"error": f"필요한 파일을 찾을 수 없습니다: {path}"}
-        
-        # Run simulation
+        # 기존의 하드코딩된 경로 대신 config에서 가져온 경로 사용
         result = run_simulation_from_file(
             file_obj,
             query,
@@ -444,77 +457,78 @@ def simulate_dispute_tool(query: str, file_obj: Any) -> Dict[str, Any]:
         else:
             logger.info("Simulation completed successfully")
             
-        return result
+        # Convert NumPy types to Python native types before returning
+        return convert_numpy_types(result)
     except Exception as e:
         logger.error(f"Error in simulation tool: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return {"error": f"시뮬레이션 실행 중 오류 발생: {str(e)}"}
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # Configuration
-    CASE_DB_PATH = "../datasets/case_db.json"
-    EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
-    SIMULATION_PROMPT_PATH = "../prompts/simulate_dispute.txt"
-    FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
-    HIGHLIGHT_PROMPT_PATH = "../prompts/highlight_prompt.txt"
-    TEST_PDF_PATH = "/Users/limdongha/workspace/LegalFore/input_ex.pdf"  # 테스트용 PDF 파일 경로
+    # CASE_DB_PATH = "../datasets/case_db.json"
+    # EMBEDDING_PATH = "../datasets/precomputed_embeddings.npz"
+    # SIMULATION_PROMPT_PATH = "../prompts/simulate_dispute.txt"
+    # FORMAT_PROMPT_PATH = "../prompts/format_output.txt"
+    # HIGHLIGHT_PROMPT_PATH = "../prompts/highlight_prompt.txt"
+    # TEST_PDF_PATH = "/Users/limdongha/workspace/LegalFore/input_ex.pdf"  # 테스트용 PDF 파일 경로
     
-    def run_test_simulation():
-        logger.info("Starting test simulation...")
+    # def run_test_simulation():
+    #     logger.info("Starting test simulation...")
         
-        # 테스트 쿼리
-        test_query = "계약 해지 상황을 시뮬레이션해줘"
+    #     # 테스트 쿼리
+    #     test_query = "계약 해지 상황을 시뮬레이션해줘"
         
-        try:
-            # PDF 파일 열기
-            with open(TEST_PDF_PATH, 'rb') as file_obj:
-                # 시뮬레이션 실행
-                result = run_simulation_from_file(
-                    file_obj,
-                    test_query,
-                    CASE_DB_PATH,
-                    EMBEDDING_PATH,
-                    SIMULATION_PROMPT_PATH,
-                    FORMAT_PROMPT_PATH,
-                    HIGHLIGHT_PROMPT_PATH
-                )
+    #     try:
+    #         # PDF 파일 열기
+    #         with open(TEST_PDF_PATH, 'rb') as file_obj:
+    #             # 시뮬레이션 실행
+    #             result = run_simulation_from_file(
+    #                 file_obj,
+    #                 test_query,
+    #                 CASE_DB_PATH,
+    #                 EMBEDDING_PATH,
+    #                 SIMULATION_PROMPT_PATH,
+    #                 FORMAT_PROMPT_PATH,
+    #                 HIGHLIGHT_PROMPT_PATH
+    #             )
                 
-                # 결과 출력
-                logger.info("\n=== Simulation Test Results ===")
-                logger.info(f"Query: {test_query}")
+    #             # 결과 출력
+    #             logger.info("\n=== Simulation Test Results ===")
+    #             logger.info(f"Query: {test_query}")
                 
-                if "error" in result:
-                    logger.error(f"Error: {result['error']}")
-                    return
+    #             if "error" in result:
+    #                 logger.error(f"Error: {result['error']}")
+    #                 return
                 
-                # 관련 독소조항 출력
-                logger.info("\n--- Relevant Toxic Clauses ---")
-                for idx, clause in enumerate(result.get("relevant_toxic_clauses", []), 1):
-                    logger.info(f"\nClause {idx}:")
-                    logger.info(f"독소조항: {clause.get('독소조항', 'N/A')}")
-                    logger.info(f"이유: {clause.get('이유', 'N/A')}")
+    #             # 관련 독소조항 출력
+    #             logger.info("\n--- Relevant Toxic Clauses ---")
+    #             for idx, clause in enumerate(result.get("relevant_toxic_clauses", []), 1):
+    #                 logger.info(f"\nClause {idx}:")
+    #                 logger.info(f"독소조항: {clause.get('독소조항', 'N/A')}")
+    #                 logger.info(f"이유: {clause.get('이유', 'N/A')}")
                 
-                # 선택된 판례 출력
-                logger.info("\n--- Selected Cases ---")
-                for idx, case in enumerate(result.get("selected_cases", []), 1):
-                    logger.info(f"\nCase {idx}:")
-                    logger.info(f"Similarity Score: {case.get('similarity_score', 'N/A')}")
-                    logger.info(f"Formatted Case: {case.get('formatted_case', 'N/A')}")
+    #             # 선택된 판례 출력
+    #             logger.info("\n--- Selected Cases ---")
+    #             for idx, case in enumerate(result.get("selected_cases", []), 1):
+    #                 logger.info(f"\nCase {idx}:")
+    #                 logger.info(f"Similarity Score: {case.get('similarity_score', 'N/A')}")
+    #                 logger.info(f"Formatted Case: {case.get('formatted_case', 'N/A')}")
                 
-                # 시뮬레이션 결과 출력
-                logger.info("\n--- Simulation Results ---")
-                for idx, simulation in enumerate(result.get("simulations", []), 1):
-                    logger.info(f"\nSimulation {idx}:")
-                    logger.info(simulation)
+    #             # 시뮬레이션 결과 출력
+    #             logger.info("\n--- Simulation Results ---")
+    #             for idx, simulation in enumerate(result.get("simulations", []), 1):
+    #                 logger.info(f"\nSimulation {idx}:")
+    #                 logger.info(simulation)
                 
-        except FileNotFoundError:
-            logger.error(f"Test PDF file not found at {TEST_PDF_PATH}")
-        except Exception as e:
-            logger.error(f"Test failed with error: {str(e)}")
-            logger.error(traceback.format_exc())
+    #     except FileNotFoundError:
+    #         logger.error(f"Test PDF file not found at {TEST_PDF_PATH}")
+    #     except Exception as e:
+    #         logger.error(f"Test failed with error: {str(e)}")
+    #         logger.error(traceback.format_exc())
     
-    # 테스트 실행
-    logger.info("=== Starting Langgraph Simulation Test ===")
-    run_test_simulation()
-    logger.info("=== Test Complete ===")
+    # # 테스트 실행
+    # logger.info("=== Starting Langgraph Simulation Test ===")
+    # run_test_simulation()
+    # logger.info("=== Test Complete ===")

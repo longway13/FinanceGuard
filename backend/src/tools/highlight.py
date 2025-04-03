@@ -8,6 +8,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from tqdm import tqdm
 from collections import OrderedDict
+from src.config import UPSTAGE_API_KEY, OPENAI_API_KEY, CASE_DB_PATH, HIGHLIGHT_PROMPT_PATH, FORMAT_PROMPT_PATH
 
 
 load_dotenv()
@@ -104,11 +105,19 @@ class LLMHighlighter:
             self.system_prompt = f.read()
         self.client = OpenAI(api_key=openai_api_key)
         self.case_retriever = case_retriever
-        with open("../prompts/format_output.txt", 'r', encoding='utf-8') as f:
+        with open(FORMAT_PROMPT_PATH, 'r', encoding='utf-8') as f:
             self.format_prompt = f.read()
     
     def format_case(self, case_details: str) -> str:  # 반환 타입을 dict에서 str로 변경
         """Format case details using LLM"""
+        # Check if input is actually a legal case
+        if not case_details or len(case_details.strip()) < 10:  # Arbitrary minimum length for valid legal text
+            return "유효한 판례 정보가 필요합니다."
+            
+        # Check if the input appears to be a non-legal query
+        if len(case_details.split()) < 5 and not any(legal_term in case_details for legal_term in ["판례", "법원", "계약", "조항"]):
+            return "계약서 분석과 관련된 내용만 처리할 수 있습니다."
+            
         messages = [
             {"role": "system", "content": self.format_prompt},
             {"role": "user", "content": case_details}
@@ -122,11 +131,14 @@ class LLMHighlighter:
             )
             
             # LLM 응답을 그대로 문자열로 반환
-            return response.choices[0].message.content.strip()
+            result = response.choices[0].message.content.strip()
+            if not result:
+                return "판례 분석 결과가 없습니다."
+            return result
             
         except Exception as e:
             app.logger.error(f"Case formatting error: {str(e)}")
-            return "판례 분석 실패"
+            return f"판례 분석 중 오류가 발생했습니다: {str(e)}"
 
     def highlight(self, text: str) -> list:
         """
@@ -213,9 +225,9 @@ class OrderedJsonEncoder(json.JSONEncoder):
 app = Flask(__name__)
 app.json_encoder = OrderedJsonEncoder
 
-API_KEY = os.getenv('UPSTAGE_API_KEY')
-PROMPT_PATH = "/Users/limdongha/workspace/LegalFore/FinanceGuard/backend/prompts/highlight_prompt.txt"
-CASE_DB_PATH = "/Users/limdongha/workspace/LegalFore/FinanceGuard/backend/datasets/case_db.json"
+API_KEY = UPSTAGE_API_KEY
+# PROMPT_PATH = "/Users/limdongha/workspace/LegalFore/FinanceGuard/backend/prompts/highlight_prompt.txt"
+# CASE_DB_PATH = "/Users/limdongha/workspace/LegalFore/FinanceGuard/backend/datasets/case_db.json"
 
 document_parser = DocumentParser(API_KEY)
 case_retriever = CaseLawRetriever(
@@ -223,8 +235,8 @@ case_retriever = CaseLawRetriever(
     embedding_path="../datasets/precomputed_embeddings.npz"
 )
 llm_highlighter = LLMHighlighter(
-    openai_api_key=os.getenv('OPENAI_API_KEY'),
-    prompt_path=PROMPT_PATH,
+    openai_api_key=OPENAI_API_KEY,
+    prompt_path=HIGHLIGHT_PROMPT_PATH,
     case_retriever=case_retriever
 )
 

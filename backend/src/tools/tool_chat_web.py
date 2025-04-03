@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify, Response
 import langgraph
 import json
 import os
-from basic import *
+from src.tools.basic import *
 from langchain_openai import ChatOpenAI
 from langchain_teddynote.tools.tavily import TavilySearch
 from typing import Annotated, Dict, Any, Optional, List
@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 from langchain.tools import tool
 from pydantic import BaseModel, Field
 
-
 from tavily import TavilyClient
+from ..config import FORMAT_PROMPT_PATH
 
 load_dotenv()
 
@@ -202,6 +202,10 @@ def chatbot(state: State):
     answer =  global_LLm.invoke(state["messages"])
     # 메시지 목록 반환
     return {"messages": [answer]}
+
+# Load format prompt from file
+with open(FORMAT_PROMPT_PATH, 'r', encoding='utf-8') as f:
+    format_prompt = f.read()
 
 # Define schema for the web search tool
 class WebSearchToolSchema(BaseModel):
