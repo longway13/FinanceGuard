@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 interface ChatbotProps {
   selectedText: string
   isLoading: boolean
+  onHighlightsReceived?: (highlights: string[]) => void
 }
 
 type MessageContentType = "text" | "dispute-cases" | "simulation" | "highlighted-clause" | "dispute-case" | "dispute-simulation" | "risky_clause"
@@ -72,7 +73,7 @@ interface Message {
   content: MessageContent
 }
 
-export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
+export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: ChatbotProps) {
   
   // System Intro Message
   const [messages, setMessages] = useState<Message[]>([
@@ -160,6 +161,12 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
       }
 
       const backendResponse: BackendResponse = await response.json();
+      
+      // 하이라이트 정보가 있으면 부모 컴포넌트에 전달
+      if (backendResponse.highlights && Array.isArray(backendResponse.highlights) && onHighlightsReceived) {
+        onHighlightsReceived(backendResponse.highlights);
+      }
+      
       let assistantMessage: Message;
       
       // 백엔드 응답 타입에 따라 메시지 생성
@@ -170,7 +177,7 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
             role: "assistant",
             content: {
               type: "text",
-              text: backendResponse.response,
+              text: backendResponse.message,
             },
           };
           break;
@@ -181,7 +188,7 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
             role: "assistant",
             content: {
               type: "dispute-simulation",
-              text: "Here's a simulation of how a dispute might play out:",
+              text: backendResponse.message || "Here's a simulation of how a dispute might play out:",
               disputeSimulation: {
                 situation: backendResponse.simulations[0].situation,
                 conversation: backendResponse.simulations.flatMap(sim => [
@@ -205,7 +212,7 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
             role: "assistant",
             content: {
               type: "dispute-cases",
-              text: "금융 분쟁 사례들입니다. 자세한 내용을 보려면 사례를 클릭하세요:",
+              text: backendResponse.message || "금융 분쟁 사례들입니다. 자세한 내용을 보려면 사례를 클릭하세요:",
               disputes: backendResponse.disputes && backendResponse.disputes.length > 0 
                 ? backendResponse.disputes.map((dispute, index) => ({
                     id: `DC-${Date.now()}-${index}`,

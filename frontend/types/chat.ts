@@ -6,9 +6,9 @@ export interface ChatRequest {
 // 백엔드 응답 인터페이스 정의
 export interface SimpleDialogueResponse {
   type: 'simple_dialogue';
-  response: string;
-  status: string;
   message: string;
+  status: string;
+  highlights?: string[];
 }
 
 export interface SimulationResponse {
@@ -21,6 +21,7 @@ export interface SimulationResponse {
   }>;
   status: string;
   message: string;
+  highlights?: string[];
 }
 
 export interface CaseResponse {
@@ -33,6 +34,7 @@ export interface CaseResponse {
     'key points': string;
     'judge result': string;
   }>;
+  highlights?: string[];
 }
 
 export type BackendResponse = SimpleDialogueResponse | SimulationResponse | CaseResponse;

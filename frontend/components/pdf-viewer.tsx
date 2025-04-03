@@ -15,12 +15,10 @@ interface PdfViewerProps {
   onTextSelect?: (text: string) => void
   isLoading?: boolean
   url?: string
+  highlightTexts?: string[] // 하이라이트할 텍스트 목록
 }
 
-// 하이라이트할 키워드 정의
-const HIGHLIGHT_KEYWORDS = ["외화로 투자되는 상품은 15시까지입니다."]
-
-export function PdfViewer({ fileId, onTextSelect, isLoading, url }: PdfViewerProps) {
+export function PdfViewer({ fileId, onTextSelect, isLoading, url, highlightTexts = [] }: PdfViewerProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [pageNumber, setPageNumber] = useState<number>(1)
   const [highlights, setHighlights] = useState<
@@ -37,6 +35,9 @@ export function PdfViewer({ fileId, onTextSelect, isLoading, url }: PdfViewerPro
   // PDF 로드 시 텍스트 검색 및 하이라이트
   const onDocumentLoadSuccess = async ({ numPages }: { numPages: number }) => {
     setNumPages(numPages)
+    if (!highlightTexts.length || !url) {
+      return
+    }
 
     const newHighlights: Array<{
       text: string
@@ -47,26 +48,23 @@ export function PdfViewer({ fileId, onTextSelect, isLoading, url }: PdfViewerPro
     }> = []
 
     for (let i = 1; i <= numPages; i++) {
-      const page = await pdfjs.getDocument(url!).promise.then((doc) => doc.getPage(i))
-
-      // 먼저 scale 1로 viewport를 받아 실제 PDF 너비를 확인
-      const initialViewport = page.getViewport({ scale: 1 })
-      // <Page>에서 width={800}으로 렌더링하므로, scale factor 계산
-      const scale = 800 / initialViewport.width
-      // 동일한 scale을 적용하여 viewport 생성
+      const page = await pdfjs.getDocument(url).promise.then((doc) => doc.getPage(i))
+      
+      // Use a constant scale factor that matches the <Page> component's scale.
+      const scale = 0.99
       const viewport = page.getViewport({ scale })
 
       const textContent = await page.getTextContent()
 
-      // 각 키워드에 대해 검색
-      HIGHLIGHT_KEYWORDS.forEach((keyword) => {
+      // For each keyword to be highlighted
+      highlightTexts.forEach((keyword) => {
         textContent.items.forEach((item: any) => {
           if (item.str.includes(keyword)) {
             const transform = item.transform
-
-            // scale을 적용해 텍스트의 위치와 크기 계산
+            // Calculate the position and dimensions using the constant scale
             const x = transform[4] * scale
             const textHeight = (item.height || 20) * scale
+            // Adjust the y-coordinate by subtracting a small offset (e.g., 5px) for better alignment
             const y = viewport.height - transform[5] * scale - textHeight
             const textWidth = item.width * scale
 
@@ -133,28 +131,29 @@ export function PdfViewer({ fileId, onTextSelect, isLoading, url }: PdfViewerPro
                 다음
               </button>
             </div>
-            <Page
-              pageNumber={pageNumber}
-              width={800}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-            >
-              {/* 하이라이트 렌더링 */}
-              {highlights
-                .filter((h) => h.page === pageNumber)
-                .map((highlight, index) => (
-                  <div
-                    key={index}
-                    className="absolute bg-yellow-200 opacity-50"
-                    style={{
-                      left: `${highlight.position.x}px`,
-                      top: `${highlight.position.y}px`,
-                      width: `${highlight.width}px`,
-                      height: `${highlight.height}px`,
-                    }}
-                  />
-                ))}
-            </Page>
+            <div className="mx-6 my-2">
+              <Page
+                pageNumber={pageNumber}
+                scale={0.99}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+              >
+                {highlights
+                  .filter((h) => h.page === pageNumber)
+                  .map((highlight, index) => (
+                    <div
+                      key={index}
+                      className="absolute bg-yellow-200 opacity-50 pointer-events-none"
+                      style={{
+                        left: `${highlight.position.x}px`,
+                        top: `${highlight.position.y}px`,
+                        width: `${highlight.width}px`,
+                        height: `${highlight.height}px`,
+                      }}
+                    />
+                  ))}
+              </Page>
+            </div>
           </div>
         </Document>
       </div>

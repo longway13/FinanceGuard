@@ -14,6 +14,7 @@ import { useAppContext } from "@/lib/context"
 export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: string }) {
   const [selectedText, setSelectedText] = useState("")
   const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined)
+  const [highlightTexts, setHighlightTexts] = useState<string[]>([])
   const [documentData, setDocumentData] = useState({
     overview: {
       summary: "",
@@ -47,6 +48,10 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
         const summary = urlParams.get('summary') || ""
         const keyValues = JSON.parse(urlParams.get('keyValues') || "{}")
         const keyFindings = JSON.parse(urlParams.get('keyFindings') || "[]")
+        
+        // 하이라이트 정보 추출
+        const highlights = JSON.parse(urlParams.get('highlights') || "[]")
+        setHighlightTexts(highlights)
         
         // documentData 설정
         setDocumentData({
@@ -99,7 +104,13 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
-        <PdfViewer fileId={fileId} onTextSelect={handleTextSelection} isLoading={isLoading} url={pdfUrl} />
+        <PdfViewer 
+          fileId={fileId} 
+          onTextSelect={handleTextSelection} 
+          isLoading={isLoading} 
+          url={pdfUrl} 
+          highlightTexts={highlightTexts}
+        />
       </div>
       <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">

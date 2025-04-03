@@ -132,7 +132,8 @@ export function FileUpload() {
         fileUrl: data.file_url,
         summary: data.summary,
         keyValues: JSON.stringify(data.key_values),
-        keyFindings: JSON.stringify(data.key_findings)
+        keyFindings: JSON.stringify(data.key_findings),
+        highlights: JSON.stringify(data.highlights)
       }).toString()
       // Router 이동
       router.push(`/dashboard/${data.pdf_id}?${queryParams}`)
