@@ -20,8 +20,6 @@ with open(CONFIG_PATH, 'r') as file:
 OPENAI_API_KEY = config['openai']['key']
 UPSTAGE_API_KEY = config['upstage']['key']
 TAVILY_API_KEY = config['tavily']['key']  # Added from config.yaml
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")  # Keeping default value
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "1.0"))  # Keeping default value
 
 # Dataset paths
 CASE_DB_PATH = os.path.join(DATASETS_DIR, "case_db.json")
