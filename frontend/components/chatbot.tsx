@@ -10,13 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import ReactMarkdown from "react-markdown"
+import { BackendResponse } from '@/types/chat'
 
 interface ChatbotProps {
   selectedText: string
   isLoading: boolean
 }
 
-type MessageContentType = "text" | "dispute-case" | "dispute-simulation" | "highlighted-clause"
+type MessageContentType = "text" | "dispute-cases" | "simulation" | "highlighted-clause" | "dispute-case" | "dispute-simulation" | "risky_clause"
 
 interface DisputeCase {
   id: string
@@ -44,6 +45,13 @@ interface HighlightedClause {
     summary: string
   }[]
 }
+//Risky_Commnents Interface Definition
+interface Risky_Clause {
+  text: string,
+  risk: string,
+  similarity: number
+}
+
 
 interface MessageContent {
   type: MessageContentType
@@ -51,6 +59,7 @@ interface MessageContent {
   disputeCase?: DisputeCase
   disputeSimulation?: DisputeSimulation
   highlightedClause?: HighlightedClause
+  risky_clause?: Risky_Clause
 }
 
 interface Message {
@@ -60,16 +69,37 @@ interface Message {
 }
 
 export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
+  
+  // System Intro Message
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
       content: {
         type: "text",
-        text: "Hello! I'm your FinanceGuard AI assistant. I can help you understand the financial document and answer any questions you have about it. You can select text from the document to ask specific questions or try these examples:\n\n- What are the risks in this document?\n- Show me dispute cases related to fees\n- Simulate a dispute about early withdrawal penalties\n- Highlight toxic clauses in this document",
+        text: `<div class="welcome-message">
+<div class="welcome-header">
+<h3>안녕하세요! 저는 여러분의 FinanceGuard AI 어시스턴트입니다.</h3>
+<p>저희 서비스는 금융상품 문서를 쉽게 이해할 수 있도록 도와드리며, 특히 금융상품에 내재된 위험성을 파악하는 데 중점을 두고 있습니다.</p>
+</div>
+<div class="example-questions">
+<h4>💡 다음과 같은 질문들을 해보세요</h4>
+<ul>
+<li><span class="tag risk">위험</span> 이 문서에 나타난 주요 위험 요소는 무엇인가요?</li>
+<li><span class="tag case">판례</span> 수수료와 관련된 분쟁 사례를 보여주세요.</li>
+<li><span class="tag simulation">시뮬레이션</span> 조기 인출 벌금에 대한 분쟁을 시뮬레이션 해주세요.</li>
+<li><span class="tag highlight">조항</span> 유해한 조항을 하이라이트 해주세요.</li>
+</ul>
+</div>
+<div class="welcome-footer">
+<p>이러한 정보를 통해 금융상품 구매 전에 잠재적 리스크를 명확하게 파악하고, 보다 안전한 투자 결정을 내리실 수 있도록 지원합니다.</p>
+</div>
+</div>`,
       },
     },
   ])
+
+  // User Input
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -77,7 +107,7 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
-  // Update input when text is selected from PDF
+  // Update input when text is selected from PDF (아직 구현 안함.)
   useEffect(() => {
     if (selectedText) {
       setInput(selectedText)
@@ -108,128 +138,105 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
     setInput("")
     setIsTyping(true)
 
-    // Simulate AI response after a delay
-    setTimeout(() => {
-      const assistantMessage = generateMockResponse(input)
-      setMessages((prev) => [...prev, assistantMessage])
-      setIsTyping(false)
-    }, 1500)
-  }
-
-  const generateMockResponse = (query: string): Message => {
-    const lowerQuery = query.toLowerCase()
-
-    // Check for dispute cases query
-    if (lowerQuery.includes("dispute") && lowerQuery.includes("case")) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: {
-          type: "dispute-case",
-          text: "I found a relevant dispute case that might be helpful:",
-          disputeCase: {
-            id: "DC-2023-1045",
-            title: "Smith v. Financial Products Corp",
-            summary:
-              "Investor claimed that fee structure was misrepresented in the product documentation, leading to unexpected charges.",
-            keyPoints: [
-              "The court found that the fee disclosure was not prominently displayed",
-              "The financial institution failed to adequately explain the fee calculation method",
-              "The marketing materials emphasized returns without equal emphasis on fees",
-            ],
-            judgmentResult: "Settled for $1.2M with agreement to revise disclosure documents.",
-            relevance: "This case involved similar fee structure language to what appears in your document on page 24.",
-          },
+    try {
+      // 백엔드 API 호출
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }
-    }
+        body: JSON.stringify({ query: input }),
+      });
 
-    // Check for dispute simulation query
-    if (lowerQuery.includes("simulate") || (lowerQuery.includes("dispute") && lowerQuery.includes("withdrawal"))) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: {
-          type: "dispute-simulation",
-          text: "Here's a simulation of how a dispute about early withdrawal penalties might play out:",
-          disputeSimulation: {
-            situation:
-              "You invested in a financial product with a 5-year term, but need to withdraw after 2 years due to unexpected medical expenses. The product has a 5% early withdrawal penalty.",
-            conversation: [
-              {
-                role: "user",
-                content:
-                  "I need to withdraw my investment early due to medical expenses. The 5% penalty seems excessive given my circumstances. Is there any way to reduce or waive this fee?",
-              },
-              {
-                role: "consultant",
-                content:
-                  "While the terms clearly state a 5% early withdrawal penalty, there is precedent for waiving or reducing fees in cases of financial hardship due to medical circumstances. You should submit a hardship waiver request with documentation of your medical expenses. In similar cases, financial institutions have reduced penalties to 1-2% or waived them entirely.",
-              },
-            ],
-          },
-        },
+      if (!response.ok) {
+        throw new Error('서버 응답 오류');
       }
-    }
 
-    // Check for highlight toxic clauses query
-    if (lowerQuery.includes("highlight") || lowerQuery.includes("toxic") || lowerQuery.includes("clause")) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: {
-          type: "highlighted-clause",
-          text: "I've identified a potentially concerning clause in the document:",
-          highlightedClause: {
-            text: "The Company reserves the right to modify any terms of this agreement, including fees and redemption policies, with 30 days notice provided electronically to the email address on file.",
-            risk: "High",
-            explanation:
-              "This clause allows the financial institution to unilaterally change key terms of the agreement, including fees and redemption policies, with minimal notice. The electronic notification requirement may result in missed notifications if emails go to spam folders.",
-            precedents: [
-              {
-                title: "Johnson v. Investment Partners (2021)",
-                summary:
-                  "Court ruled that unilateral changes to fee structures with only electronic notification was insufficient, especially when resulting in significant financial impact.",
+      const backendResponse: BackendResponse = await response.json();
+      let assistantMessage: Message;
+      
+      // 백엔드 응답 타입에 따라 메시지 생성
+      switch (backendResponse.type) {
+        case 'simple_dialogue':
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "text",
+              text: backendResponse.response,
+            },
+          };
+          break;
+          
+        case 'simulation':
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "dispute-simulation",
+              text: "Here's a simulation of how a dispute might play out:",
+              disputeSimulation: {
+                situation: backendResponse.simulations[0].situation,
+                conversation: backendResponse.simulations.flatMap(sim => [
+                  {
+                    role: "user",
+                    content: sim.user,
+                  },
+                  {
+                    role: "consultant",
+                    content: sim.agent,
+                  },
+                ]),
               },
-              {
-                title: "Regulatory Guidance 2022-03",
-                summary:
-                  "Financial regulators have indicated that material changes to financial product terms should require affirmative consent, not just notification.",
+            },
+          };
+          break;
+          
+        case 'cases':
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "dispute-case",
+              text: "I found a relevant dispute case that might be helpful:",
+              disputeCase: {
+                id: `DC-${Date.now()}`,
+                title: backendResponse.response.title,
+                summary: backendResponse.response.summary,
+                keyPoints: backendResponse.response['key points'].split('\n'),
+                judgmentResult: backendResponse.response['judge result'],
+                relevance: "This case is relevant to your query.",
               },
-            ],
-          },
-        },
+            },
+          };
+          break;
+          
+        default:
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "text",
+              text: "응답을 받았지만 처리할 수 없는 형식입니다. 다시 시도해 주세요.",
+            },
+          };
       }
-    }
-
-    // Default response for general queries
-    if (lowerQuery.includes("risk")) {
-      return {
-        id: (Date.now() + 1).toString(),
+      
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error:', error);
+      // 에러 메시지 추가
+      const errorMessage: Message = {
+        id: Date.now().toString(),
         role: "assistant",
         content: {
           type: "text",
-          text: "Based on my analysis, this document contains several risk factors related to market volatility and liquidity constraints. The most significant risk appears in section 3.2, which outlines potential losses due to market fluctuations. I recommend paying close attention to the risk disclosure statements on pages 15-18.",
+          text: "죄송합니다. 요청을 처리하는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
         },
-      }
-    } else if (lowerQuery.includes("fee") || lowerQuery.includes("charge")) {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: {
-          type: "text",
-          text: "The document mentions several fees: a 1.5% annual management fee, a 0.2% administrative fee, and potential early withdrawal penalties of up to 3%. These fees are detailed in section 4.3 of the document. Compared to industry standards, the management fee is slightly above average for this type of financial product.",
-        },
-      }
-    } else {
-      return {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: {
-          type: "text",
-          text: "I've analyzed your question about the document. To provide a more specific answer, I would need to reference the exact section you're inquiring about. You can select specific text from the document or ask a more detailed question about particular aspects like risks, fees, terms, or dispute resolution processes.",
-        },
-      }
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
   }
 
@@ -249,9 +256,38 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
 
     switch (content.type) {
       case "text":
+        // 환영 메시지인 경우 HTML로 직접 렌더링
+        if (content.text?.includes('<div class="welcome-message">')) {
+          return (
+            <div 
+              className="prose prose-sm prose-p:my-0.5 prose-headings:my-0.5 prose-ul:my-0.5 prose-li:my-0 dark:prose-invert max-w-none leading-tight"
+              dangerouslySetInnerHTML={{ 
+                __html: content.text
+                  .replace('class="welcome-message"', 'class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-1.5 shadow-sm"')
+                  .replace('class="welcome-header"', 'class="mb-0"')
+                  .replace('class="example-questions"', 'class="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm mb-0 mt-0"')
+                  .replace('class="welcome-footer"', 'class="text-sm text-gray-600 dark:text-gray-300 italic mt-0"')
+                  .replace(/<h3>/g, '<h3 class="text-base font-semibold mb-0 mt-0 text-primary leading-none">')
+                  .replace(/<h4>/g, '<h4 class="text-sm font-medium mb-0 mt-0 flex items-center leading-none">')
+                  .replace(/<p>/g, '<p class="leading-none mb-0 mt-0">')
+                  .replace(/><p>/g, '><p class="mt-0">')
+                  .replace(/<ul>/g, '<ul class="my-0 pl-0 space-y-0">')
+                  .replace(/<li>/g, '<li class="flex items-start my-0 leading-none">')
+                  .replace(/class="tag risk"/g, 'class="inline-block mr-1 px-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 text-xs font-medium rounded"')
+                  .replace(/class="tag case"/g, 'class="inline-block mr-1 px-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 text-xs font-medium rounded"')
+                  .replace(/class="tag simulation"/g, 'class="inline-block mr-1 px-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs font-medium rounded"')
+                  .replace(/class="tag highlight"/g, 'class="inline-block mr-1 px-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 text-xs font-medium rounded"')
+              }} 
+            />
+          )
+        }
+        
+        // 일반 텍스트 메시지는 ReactMarkdown으로 렌더링
         return (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{content.text || ""}</ReactMarkdown>
+          <div className="prose prose-sm prose-p:my-0.5 prose-headings:my-0.5 prose-ul:my-0.5 prose-li:my-0 dark:prose-invert max-w-none leading-tight">
+            <ReactMarkdown>
+              {content.text || ""}
+            </ReactMarkdown>
           </div>
         )
 
