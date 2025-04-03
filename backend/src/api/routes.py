@@ -324,10 +324,20 @@ def upload_pdf():
         
         highlight_result = llm_highlighter.highlight(text)
 
-        print(highlight_result)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
         
+        high_json = json.dumps(highlight_result, ensure_ascii=False, indent=2)
+        # 변환
+        converted = []
+        for item in high_json:
+            converted.append({
+                "toxic_clause": item["독소조항"],
+                "reason": item["이유"],
+                "related_case_formatted": item["유사판례_정리"],
+                "related_case_raw": item["유사판례_원문"],
+                "similarity": item["유사도"]
+            })
         print("finished")
         response_data = {
             "status": "success",
@@ -336,7 +346,7 @@ def upload_pdf():
             "file_url": file_path,
             "pdf_id": f"PDF_{pdf_counter}",
             "summary": summary,
-            "highlight": highlight_result  # 원본 객체를 그대로 사용
+            "highlight": converted  # 원본 객체를 그대로 사용
         }
 
         response_json = json.dumps(response_data, cls=OrderedJsonEncoder, ensure_ascii=False)
