@@ -11,19 +11,38 @@ export async function POST(request: NextRequest) {
     const body: ChatRequest = await request.json();
     const { query } = body;
     
+    // 인증 실패, 권한 오류 테스트 (실제 구현 시 제거 필요)
+    if (query.toLowerCase().includes('권한') || query.toLowerCase().includes('인증')) {
+      // 인증/권한 오류 - 메인 페이지로 리다이렉션
+      return NextResponse.redirect(new URL('/', request.nextUrl.origin));
+    }
+    
+    // 심각한 오류 테스트 (실제 구현 시 제거 필요)
+    if (query.toLowerCase().includes('오류') || query.toLowerCase().includes('에러')) {
+      // 심각한 오류 - 에러 페이지로 리다이렉션
+      return NextResponse.redirect(new URL('/error', request.nextUrl.origin));
+    }
+    
     // 백엔드 API 연동 준비
     // 실제 백엔드 연동 시, 아래 코드 사용
-    const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:3000/api';
-    const response = await fetch(`${backendUrl}/chat`, {
+    const backendUrl = process.env.BACKEND_URL || 'http://0.0.0.0:5000';
+    const response = await fetch(`${backendUrl}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.API_KEY}`
       },
       body: JSON.stringify({ query }),
     });
 
     if (!response.ok) {
+      // 백엔드 응답 상태에 따른 리다이렉션
+      if (response.status === 401 || response.status === 403) {
+        // 인증/권한 오류 - 메인 페이지로 리다이렉션
+        return NextResponse.redirect(new URL('/', request.nextUrl.origin));
+      } else if (response.status >= 500) {
+        // 서버 오류 - 에러 페이지로 리다이렉션
+        return NextResponse.redirect(new URL('/error', request.nextUrl.origin));
+      }
       throw new Error(`Backend API error: ${response.statusText}`);
     }
 
@@ -32,6 +51,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error in chat API:', error);
+    
+    // 심각한 오류일 경우 에러 페이지로 리다이렉션
+    if ((error as Error).message.includes('Backend API error') || 
+        (error as Error).message.includes('ECONNREFUSED') ||
+        (error as Error).message.includes('fetch failed')) {
+      return NextResponse.redirect(new URL('/error', request.nextUrl.origin));
+    }
+    
     return NextResponse.json(
       { error: 'Error regarding agent response about user query. Please try again.' } as ErrorResponse,
       { status: 500 }

@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { mockDocumentData } from "@/lib/mock-data"
 import type { DisputeCase } from "@/lib/types"
+import { useAppContext } from "@/lib/context"
 
 export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: string }) {
   const [selectedText, setSelectedText] = useState("")
@@ -35,6 +36,7 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
   })
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
+  const { activeTab, setActiveTab, selectedDisputeId } = useAppContext()
 
   useEffect(() => {
     const loadData = () => {
@@ -100,7 +102,7 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
         <PdfViewer fileId={fileId} onTextSelect={handleTextSelection} isLoading={isLoading} url={pdfUrl} />
       </div>
       <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
-        <Tabs defaultValue="overview" className="flex flex-col h-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           <TabsList className="w-full justify-start border-b">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="disputes">Disputes</TabsTrigger>
@@ -111,7 +113,7 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
               <Overview data={documentData.overview} isLoading={isLoading} />
             </TabsContent>
             <TabsContent value="disputes" className="h-full overflow-auto">
-              <DisputeCases data={documentData.disputes} isLoading={isLoading} />
+              <DisputeCases data={documentData.disputes} isLoading={isLoading} selectedId={selectedDisputeId} />
             </TabsContent>
             <TabsContent value="chat" className="h-full overflow-hidden">
               <Chatbot selectedText={selectedText} isLoading={isLoading} />

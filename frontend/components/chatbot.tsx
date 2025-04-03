@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Bot, User, Sparkles, Copy, Check, AlertTriangle, Scale, Briefcase } from "lucide-react"
+import { Send, Bot, User, Sparkles, Copy, Check, AlertTriangle, Scale, Briefcase, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import ReactMarkdown from "react-markdown"
 import { BackendResponse } from '@/types/chat'
+import { useAppContext } from "@/lib/context"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator"
 
 interface ChatbotProps {
   selectedText: string
@@ -57,6 +60,7 @@ interface MessageContent {
   type: MessageContentType
   text?: string
   disputeCase?: DisputeCase
+  disputes?: DisputeCase[]
   disputeSimulation?: DisputeSimulation
   highlightedClause?: HighlightedClause
   risky_clause?: Risky_Clause
@@ -106,6 +110,9 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
+  const { setActiveTab, setSelectedDisputeId } = useAppContext()
+  const [selectedDisputeCase, setSelectedDisputeCase] = useState<DisputeCase | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   // Update input when text is selected from PDF (아직 구현 안함.)
   useEffect(() => {
@@ -197,16 +204,18 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
             id: Date.now().toString(),
             role: "assistant",
             content: {
-              type: "dispute-case",
-              text: "I found a relevant dispute case that might be helpful:",
-              disputeCase: {
-                id: `DC-${Date.now()}`,
-                title: backendResponse.response.title,
-                summary: backendResponse.response.summary,
-                keyPoints: backendResponse.response['key points'].split('\n'),
-                judgmentResult: backendResponse.response['judge result'],
-                relevance: "This case is relevant to your query.",
-              },
+              type: "dispute-cases",
+              text: "금융 분쟁 사례들입니다. 자세한 내용을 보려면 사례를 클릭하세요:",
+              disputes: backendResponse.disputes && backendResponse.disputes.length > 0 
+                ? backendResponse.disputes.map((dispute, index) => ({
+                    id: `DC-${Date.now()}-${index}`,
+                    title: dispute.title,
+                    summary: dispute.summary,
+                    keyPoints: dispute['key points'].split('\n'),
+                    judgmentResult: dispute['judge result'],
+                    relevance: "이 사례가 귀하의 질문과 관련이 있습니다.",
+                  }))
+                : [],
             },
           };
           break;
@@ -225,7 +234,8 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error:', error);
-      // 에러 메시지 추가
+      
+      // 심각하지 않은 오류는 메시지로 표시
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
@@ -249,6 +259,12 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
       title: "Copied to clipboard",
       description: "The message has been copied to your clipboard",
     })
+  }
+
+  // 분쟁 사례 상세보기 모달을 여는 함수
+  const handleViewDisputeDetails = (dispute: DisputeCase) => {
+    setSelectedDisputeCase(dispute);
+    setIsDialogOpen(true);
   }
 
   const renderMessageContent = (message: Message) => {
@@ -324,6 +340,16 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
                   <div className="bg-amber-50 p-3 rounded-md border border-amber-200">
                     <p className="font-medium mb-1 text-amber-800">Relevance to Your Document</p>
                     <p className="text-amber-800">{content.disputeCase.relevance}</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => content.disputeCase?.id && handleViewDisputeDetails(content.disputeCase)}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      View Full Case Details
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -422,6 +448,40 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </div>
+        )
+
+      case "dispute-cases":
+        return (
+          <div className="space-y-3">
+            {content.text && <p>{content.text}</p>}
+            {content.disputes && content.disputes.length > 0 ? (
+              <div className="space-y-2">
+                {content.disputes.map((dispute) => (
+                  <Card key={dispute.id} className="hover:bg-muted/50 transition-colors cursor-pointer">
+                    <CardContent className="p-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-medium">{dispute.title}</h4>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2"
+                            onClick={() => handleViewDisputeDetails(dispute)}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            <span className="sr-only">View details</span>
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">{dispute.summary}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">관련 분쟁 사례를 찾을 수 없습니다.</p>
             )}
           </div>
         )
@@ -538,6 +598,46 @@ export function Chatbot({ selectedText, isLoading }: ChatbotProps) {
           </Button>
         </form>
       </div>
+      
+      {/* 분쟁 사례 상세 정보 모달 */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        {selectedDisputeCase && (
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">{selectedDisputeCase.title}</DialogTitle>
+              <DialogDescription>사례 #{selectedDisputeCase.id}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-1">요약</h4>
+                <p className="text-sm">{selectedDisputeCase.summary}</p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-1">주요 쟁점</h4>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  {selectedDisputeCase.keyPoints.map((point, index) => (
+                    <li key={index}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-1">판결 결과</h4>
+                <p className="text-sm">{selectedDisputeCase.judgmentResult}</p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-medium mb-1">문서와의 관련성</h4>
+                <div className="flex items-start gap-2 bg-amber-50 p-3 rounded-md border border-amber-200">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-800">{selectedDisputeCase.relevance}</p>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   )
 }

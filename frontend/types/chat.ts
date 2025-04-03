@@ -25,14 +25,14 @@ export interface SimulationResponse {
 
 export interface CaseResponse {
   type: 'cases';
-  response: {
+  message: string;
+  status: string;
+  disputes: Array<{
     title: string;
     summary: string;
     'key points': string;
     'judge result': string;
-  };
-  status: string;
-  message: string;
+  }>;
 }
 
 export type BackendResponse = SimpleDialogueResponse | SimulationResponse | CaseResponse;
