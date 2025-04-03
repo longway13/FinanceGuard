@@ -30,16 +30,15 @@ def retrieve_cases(state: QueryState, case_retriever: CaseLawRetriever) -> Query
             np.linalg.norm(case_retriever.case_embeddings, axis=1) * np.linalg.norm(query_embedding)
         )
         
-        # Top 3 similar cases
-        top_indices = np.argsort(similarities)[-3:][::-1]
+        # Top 1 similar case
+        top_index = np.argmax(similarities)
         state["similar_cases"] = [
             {
-                "case": case_retriever.cases[idx]["value"],
-                "similarity_score": float(similarities[idx])
+                "case": case_retriever.cases[top_index]["value"],
+                "similarity_score": float(similarities[top_index])
             }
-            for idx in top_indices
         ]
-        print(f"Found {len(state['similar_cases'])} similar cases")
+        print(f"Found most similar case")
         return state
     except Exception as e:
         print(f"Error in retrieve_cases: {e}")
@@ -66,7 +65,7 @@ def format_cases(state: QueryState, format_prompt: str, client: OpenAI) -> Query
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",  # gpt-4o-mini 대신 더 안정적인 모델 사용
                     messages=messages,
-                    temperature=0.7
+                    temperature=1.0
                 )
                 formatted_results.append(response.choices[0].message.content.strip())
                 print(f"Successfully formatted case result")
@@ -74,7 +73,7 @@ def format_cases(state: QueryState, format_prompt: str, client: OpenAI) -> Query
                 print(f"Error formatting individual case: {e}")
                 formatted_results.append(f"판례 분석 실패: {str(e)}")
         
-        state["formatted_results"] = formatted_results
+        state["formatted_results"] = formatted_results[0]
         return state
     except Exception as e:
         print(f"Error in format_cases: {e}")

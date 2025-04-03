@@ -104,4 +104,4 @@ class PDFProcessor:
         if not parse_result:
             parse_result = "파싱된 텍스트가 없습니다."
         summary = self.summarizer.generate_summary(parse_result)
-        return summary
+        return parse_result, summary

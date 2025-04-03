@@ -10,6 +10,7 @@ import boto3
 from botocore.config import Config
 import requests
 from datetime import datetime
+import io
 
 # Local imports
 from ..agent.core import process_query
@@ -292,19 +293,22 @@ def upload_pdf():
         pdf_processor = PDFProcessor(document_parser, llm_summarizer)
 
         #여기서 summary 추출
-        response = s3.get_object(Bucket=BUCKET_NAME, Key="pdf/0")
+        response = s3.get_object(Bucket=BUCKET_NAME, Key="pdf/0") #key에 따라 다양한 파일 받아올 수 있음
         file = response['Body'] 
+        file_obj = io.BytesIO(file.read())
+        file_obj.seek(0) 
 
-        summary = pdf_processor.process_pdf(file)
+        parse_result, summary = pdf_processor.process_pdf(file_obj)
 
-        PROMPT_PATH = "prompt/highlight_prompt.txt"
-        CASE_DB_PATH = "datasets/case_db.json"
+
+        PROMPT_PATH = "backend/prompts/highlight_prompt.txt"
+        CASE_DB_PATH = "backend/datasets/case_db.json"
 
         document_parser = DocumentParser(API_KEY)
 
         case_retriever = CaseLawRetriever(
             case_db_path=CASE_DB_PATH,
-            embedding_path="datasets/precomputed_embeddings.npz"
+            embedding_path="backend/datasets/precomputed_embeddings.npz"
         )
 
         llm_highlighter = LLMHighlighter(
@@ -313,25 +317,15 @@ def upload_pdf():
             case_retriever=case_retriever
         )
         print("Starting document analysis...")
-        if 'document' not in request.files:
-            return jsonify({"error": "문서가 필요합니다."}), 400
-        
-        file = request.files['document']
-        if not file.filename:
-            return jsonify({"error": "빈 파일이 전송되었습니다."}), 400
-            
-        parse_result = document_parser.parse(file)
-        text = json.loads(parse_result)
-        text = text["content"]["text"]
+
+        text = parse_result
         if not text:
             return jsonify({"error": "파싱된 텍스트가 없습니다."}), 400
         
         highlight_result = llm_highlighter.highlight(text)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
-        print(summary)
-        print()
-        print(highlight_result)
+        print("finished")
         response_data = {
             "status": "success",
             "message": "Successfully uploaded file",
@@ -353,4 +347,15 @@ def upload_pdf():
         print(f"Error during file upload: {str(e)}")  # 에러 로깅
         return jsonify({"error": str(e)}), 500
 
-
+@app.route('/reset', methods=['POST'])
+def reset_session():
+    # Remove the stored file if it exists
+    if 'pdf_file_path' in session:
+        try:
+            os.remove(session['pdf_file_path'])
+        except:
+            pass
+    
+    # Clear the session
+    session.clear()
+    return jsonify({"success": True})

@@ -83,7 +83,7 @@ class LLMHighlighter:
         self.prompt_path = prompt_path
         with open(prompt_path, 'r', encoding='utf-8') as f:
             self.system_prompt = f.read()
-        get_openai_api_key()
+        get_openai_api_key("backend/conf.d/config.yaml")
         self.client = OpenAI()
         self.case_retriever = case_retriever
         with open("backend/prompts/format_output.txt", 'r', encoding='utf-8') as f:

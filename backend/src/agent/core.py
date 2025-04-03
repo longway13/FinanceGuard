@@ -237,9 +237,18 @@ def create_chatbot_node(tools):
             elif isinstance(messages[0], str):
                 last_user_message = messages[0]
         
+        # Log the message before processing
+        logger.info(f"Processing message: {last_user_message}")
+        
         # Use the bound LLM
         try:
             response = llm_with_tools.invoke(messages)
+            # Log the response for debugging
+            logger.info("LLM Response:")
+            logger.info(f"Response type: {type(response)}")
+            logger.info(f"Response content: {response.content if hasattr(response, 'content') else response}")
+            if hasattr(response, "tool_calls"):
+                logger.info(f"Tool calls: {response.tool_calls}")
         except Exception as e:
             logger.error(f"Error invoking LLM: {e}")
             response = {"content": "Unable to process the query. Please try again."}
@@ -252,23 +261,10 @@ def create_chatbot_node(tools):
         
         # If there are tool calls, add them to the message
         if hasattr(response, "tool_calls") and response.tool_calls:
+            logger.info(f"Adding tool calls to message: {response.tool_calls}")
             ai_message["tool_calls"] = response.tool_calls
         else:
-            # Check if we should force a tool call for simulation when file is present
-            has_simulation_keywords = False
-            if last_user_message:
-                keywords = ["계약", "시뮬레이션", "해지", "분석", "검토"]
-                has_simulation_keywords = any(keyword in last_user_message for keyword in keywords)
-            
-            if file_obj and (has_simulation_keywords or last_user_message is None):
-                logger.info("Forcing simulation tool call based on file presence")
-                query_text = last_user_message or "계약 해지 상황 시뮬레이션"
-                
-                ai_message["tool_calls"] = [{
-                    "name": "simulate_dispute_tool",
-                    "id": "forced_simulation",
-                    "args": {"query": query_text, "file_obj": file_obj}
-                }]
+            logger.info("No tool calls in response")
         
         return {"messages": [ai_message]}
     
@@ -318,18 +314,11 @@ def process_query(query: str, tools: List, pdf_path: Optional[str] = None) -> di
             except Exception as e:
                 logger.error(f"Error opening PDF file: {e}")
                 return {
-                    "type": "simple_dialogue",
+                    "type": "error",
                     "response": f"PDF 파일을 열 수 없습니다: {str(e)}",
                     "status": "error",
                     "message": f"Could not open PDF file: {str(e)}"
                 }
-        elif query and any(keyword in query for keyword in ["계약", "시뮬레이션", "해지"]) and not pdf_path:
-            return {
-                "type": "simple_dialogue",
-                "response": "계약서 분석을 위해서는 먼저 PDF 파일을 업로드해 주세요.",
-                "status": "error",
-                "message": "PDF file required for contract analysis"
-            }
                     
         # Create the agent
         agent = create_legal_assistant_agent(tools)
@@ -357,7 +346,7 @@ def process_query(query: str, tools: List, pdf_path: Optional[str] = None) -> di
         import traceback
         logger.error(traceback.format_exc())
         return {
-            "type": "simple_dialogue", 
+            "type": "error", 
             "response": f"시스템 오류: {str(e)}", 
             "status": "error", 
             "message": str(e)
