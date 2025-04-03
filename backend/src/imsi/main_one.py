@@ -2,7 +2,7 @@ import requests
 from flask import Flask, request, jsonify, Response
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from basic import *
+from src.imsi.basic import *
 import json
 import os
 from werkzeug.utils import secure_filename
@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 class LLMSummarizer:
     def __init__(self):
         # LLM 관련 설정 추가 가능 (예: API 키 등)
-        get_openai_api_key("conf.d/config.yaml")
+        get_openai_api_key("backend/conf.d/config.yaml")
         self.llm = ChatOpenAI(model_name='gpt-4o-mini',  # 'gpt-3.5-turbo' or 'gpt-4o-mini'
                       temperature=0,max_tokens=1500, max_retries=100)
 

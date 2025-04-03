@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 from openai import OpenAI
 import json
 import os
-from basic import *
+from src.imsi.basic import *
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 import numpy as np
