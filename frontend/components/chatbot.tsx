@@ -40,6 +40,11 @@ interface DisputeSimulation {
   }[]
 }
 
+interface DisputeGroup {
+  name: string
+  simulations: DisputeSimulation[]
+}
+
 interface HighlightedClause {
   text: string
   risk: "High" | "Medium" | "Low"
@@ -63,6 +68,7 @@ interface MessageContent {
   disputeCase?: DisputeCase
   disputes?: DisputeCase[]
   disputeSimulation?: DisputeSimulation
+  disputeGroups?: DisputeGroup[]
   highlightedClause?: HighlightedClause
   risky_clause?: Risky_Clause
 }
@@ -233,27 +239,152 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
           break;
           
         case 'simulation':
-          assistantMessage = {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: {
-              type: "dispute-simulation",
-              text: backendResponse.message || "Here's a simulation of how a dispute might play out:",
-              disputeSimulation: {
-                situation: backendResponse.simulations[0].situation,
-                conversation: backendResponse.simulations.flatMap(sim => [
-                  {
-                    role: "user",
-                    content: sim.user,
-                  },
-                  {
-                    role: "consultant",
-                    content: sim.agent,
-                  },
-                ]),
+          if (backendResponse.disputeGroups && backendResponse.disputeGroups.length > 0) {
+            // disputeGroups 형식을 DisputeGroup 인터페이스에 맞게 변환
+            const transformedGroups: DisputeGroup[] = backendResponse.disputeGroups.map(group => {
+              // 각 그룹에 대해 situation별로 대화 쌍을 구성
+              const situationMap = new Map<string, {userMsg?: string, consultantMsg?: string}>();
+              
+              // 먼저 모든 메시지를 situation별로 분류
+              group.simulations.forEach(sim => {
+                if (!situationMap.has(sim.situation)) {
+                  situationMap.set(sim.situation, {});
+                }
+                
+                const entry = situationMap.get(sim.situation);
+                if (sim.role === 'user') {
+                  entry!.userMsg = sim.content || "";
+                } else if (sim.role === 'consultant') {
+                  entry!.consultantMsg = sim.content || "";
+                }
+              });
+              
+              // situation별로 user와 consultant 대화 쌍 구성
+              const simulations: DisputeSimulation[] = [];
+              situationMap.forEach((msgs, situation) => {
+                // 대화 배열에 user와 consultant 메시지를 추가
+                const conversation = [];
+                
+                // user 메시지가 있으면 추가
+                if (msgs.userMsg) {
+                  conversation.push({
+                    role: "user" as const,
+                    content: msgs.userMsg
+                  });
+                }
+                
+                // consultant 메시지가 있으면 추가
+                if (msgs.consultantMsg) {
+                  conversation.push({
+                    role: "consultant" as const,
+                    content: msgs.consultantMsg
+                  });
+                }
+                
+                // 대화가 있으면 시뮬레이션 추가
+                if (conversation.length > 0) {
+                  simulations.push({
+                    situation,
+                    conversation
+                  });
+                }
+              });
+              
+              return {
+                name: group.name,
+                simulations
+              };
+            });
+
+            assistantMessage = {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: {
+                type: "dispute-simulation",
+                text: backendResponse.message || "Here's a simulation of how disputes might play out:",
+                disputeGroups: transformedGroups
               },
-            },
-          };
+            };
+          } else if (backendResponse.simulations && backendResponse.simulations.length > 0) {
+            // 모든 시뮬레이션 항목을 그룹화하고 각각 개별 시뮬레이션으로 만들기
+            const simulations: DisputeSimulation[] = [];
+            
+            // 각 situation별로 메시지 구성
+            const situationMap = new Map<string, Array<{role: 'user' | 'consultant', content: string}>>();
+            
+            // 모든 시뮬레이션 항목을 순회하면서 처리
+            backendResponse.simulations.forEach(sim => {
+              const situation = sim.situation;
+              
+              // user/consultant 키 확인
+              if ('user' in sim && sim.user) {
+                if (!situationMap.has(situation)) {
+                  situationMap.set(situation, []);
+                }
+                situationMap.get(situation)!.push({
+                  role: 'user',
+                  content: sim.user
+                });
+              }
+              
+              if ('consultant' in sim && sim.consultant) {
+                if (!situationMap.has(situation)) {
+                  situationMap.set(situation, []);
+                }
+                situationMap.get(situation)!.push({
+                  role: 'consultant',
+                  content: sim.consultant
+                });
+              }
+            });
+            
+            // Map을 배열로 변환하여 각 상황별 시뮬레이션 생성
+            for (const [situation, conversations] of situationMap.entries()) {
+              simulations.push({
+                situation,
+                conversation: conversations
+              });
+            }
+            
+            // 시뮬레이션이 있으면 표시
+            if (simulations.length > 0) {
+              assistantMessage = {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: {
+                  type: "dispute-simulation",
+                  text: backendResponse.message || "Here's a simulation of how disputes might play out:",
+                  // 가상의 그룹 이름으로 그룹화
+                  disputeGroups: [
+                    {
+                      name: "투자 상품 관련 시뮬레이션",
+                      simulations: simulations
+                    }
+                  ]
+                },
+              };
+            } else {
+              // 시뮬레이션 데이터가 없는 경우
+              assistantMessage = {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: {
+                  type: "text",
+                  text: "시뮬레이션 데이터를 받을 수 없습니다. 다시 시도해 주세요.",
+                },
+              };
+            }
+          } else {
+            // 시뮬레이션 데이터가 없는 경우
+            assistantMessage = {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: {
+                type: "text",
+                text: "시뮬레이션 데이터를 받을 수 없습니다. 다시 시도해 주세요.",
+              },
+            };
+          }
           break;
           
         case 'cases':
@@ -420,8 +551,54 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
 
       case "dispute-simulation":
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {content.text && <p>{content.text}</p>}
+            
+            {/* 새로운 disputeGroups 형식 처리 */}
+            {content.disputeGroups && content.disputeGroups.map((group, groupIndex) => (
+              <div key={`group-${groupIndex}`} className="space-y-4">
+                <h3 className="text-sm font-medium">{group.name}</h3>
+                {group.simulations.map((sim, simIndex) => (
+                  <Card key={`sim-${groupIndex}-${simIndex}`}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Scale className="h-4 w-4" />
+                        Dispute Simulation
+                      </CardTitle>
+                      <CardDescription>How a potential dispute might be resolved</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <div className="bg-muted p-3 rounded-md">
+                        <p className="font-medium mb-1">Situation</p>
+                        <p>{sim.situation}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium mb-1">Conversation</p>
+                        <div className="space-y-3">
+                          {sim.conversation.map((item, index) => (
+                            <div
+                              key={index}
+                              className={`flex gap-2 ${item.role === "consultant" ? "justify-start" : "justify-end"}`}
+                            >
+                              <div
+                                className={`rounded-lg px-3 py-2 max-w-[90%] ${
+                                  item.role === "consultant" ? "bg-muted" : "bg-primary text-primary-foreground"
+                                }`}
+                              >
+
+                                <p>{item.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ))}
+
+            {/* 기존 disputeSimulation 형식 처리 (하위 호환성 유지) */}
             {content.disputeSimulation && (
               <Card>
                 <CardHeader className="pb-2">

@@ -93,7 +93,27 @@ export function FileUpload() {
     setIsUploading(true)
     setUploadProgress(0)
 
+    // 업로드 시작 시 토스트 메시지 표시
+    toast({
+      title: "Upload started",
+      description: "Your document is being uploaded and processed...",
+    })
+
     try {
+      // 업로드 진행 상태를 시뮬레이션 (실제로는 진행 상태를 보려면 서버 응답이 필요)
+      const updateProgress = () => {
+        setUploadProgress(prev => {
+          // 95%까지만 진행 (실제 완료는 서버 응답 후)
+          if (prev < 95) {
+            return prev + (5 + Math.random() * 10)
+          }
+          return prev
+        })
+      }
+
+      // 진행 상태 업데이트 시작
+      const progressInterval = setInterval(updateProgress, 500)
+
       // FormData 생성
       console.log(selectedFile)
       const formData = new FormData()
@@ -104,6 +124,9 @@ export function FileUpload() {
         method: 'POST',
         body: formData,
       })
+
+      // 진행 상태 업데이트 중지
+      clearInterval(progressInterval)
 
       if (!response.ok) {
         throw new Error('Upload failed')
@@ -219,7 +242,20 @@ export function FileUpload() {
                   <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
                 </div>
               </div>
-              <Button onClick={handleFileUpload}>Upload and Analyze</Button>
+              <Button 
+                onClick={handleFileUpload} 
+                disabled={isUploading}
+                className="min-w-[120px]"
+              >
+                {isUploading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                    <span>Uploading...</span>
+                  </div>
+                ) : (
+                  'Upload and Analyze'
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>

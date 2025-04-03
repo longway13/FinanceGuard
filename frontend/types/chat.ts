@@ -13,15 +13,27 @@ export interface SimpleDialogueResponse {
 
 export interface SimulationResponse {
   type: 'simulation';
-  simulations: Array<{
-    id: number;
-    situation: string;
-    user: string;
-    agent: string;
-  }>;
-  status: string;
   message: string;
+  status?: string;
   highlights?: string[];
+  // 기존 형식과의 호환성 유지
+  simulations?: Array<{
+    id?: number;
+    situation: string;
+    role?: 'user' | 'consultant';
+    content?: string;
+    user?: string;
+    consultant?: string;
+  }>;
+  // 새로운 그룹화된 시뮬레이션 형식 추가
+  disputeGroups?: Array<{
+    name: string;
+    simulations: Array<{
+      situation: string;
+      role: 'user' | 'consultant';
+      content: string;
+    }>;
+  }>;
 }
 
 export interface CaseResponse {

@@ -37,6 +37,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(mock_highlights);
     }
     
+    // 시뮬레이션 요청 처리
+    if (query.toLowerCase().includes('시뮬레이션')) {
+      const mock_simulation = {
+        "type": "simulation",
+        "message": "투자 상품에 대한 시물레이션 대화입니다.",
+        "simulations": [
+          {
+            "id": 1,
+            "situation": "3년 후에 투자 상품의 수익률이 기존 보장율보다 떨어짐.",
+            "user": "최근 수익률을 확인해보니 보장율보다 낮던데, 이유가 뭔가요?",
+            "consultant": "안녕하세요, 고객님. 시장 금리 하락 등의 영향으로 수익률이 일시적으로 보장율보다 낮게 나타날 수 있습니다. 자세한 내용을 확인해 드릴까요?"
+          },
+          {
+            "id": 2,
+            "situation": "수익률이 내가 원하는 만큼 나오지 않아서 해지하고 싶은 경우",
+            "user": "기대했던 수익이 안 나와서 해지하고 싶은데, 어떻게 해야 하나요?",
+            "consultant": "해지는 가능하지만, 상품에 따라 수수료나 손실이 발생할 수 있어요. 원하시면 해지 절차와 유의사항을 안내해 드릴게요."
+          }
+        ]
+      };
+      
+      return NextResponse.json(mock_simulation);
+    }
+    
     // 백엔드 API 연동 준비
     // 실제 백엔드 연동 시, 아래 코드 사용
     const backendUrl = process.env.BACKEND_URL || 'http://0.0.0.0:5000';
