@@ -337,11 +337,8 @@ def upload_pdf():
         }
 
         response_json = json.dumps(response_data, cls=OrderedJsonEncoder, ensure_ascii=False)
-        return app.response_class(
-            response=response_json,
-            status=200,
-            mimetype='application/json'
-        )
+        
+        return jsonify({"success": True, "response" : response_json}), 200
 
     except Exception as e:
         print(f"Error during file upload: {str(e)}")  # 에러 로깅

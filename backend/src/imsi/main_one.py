@@ -25,21 +25,23 @@ class LLMSummarizer:
         """
         prompt_path = "backend/prompts/summarize_pdf.yaml"
         prompt = load_message(prompt_path)
+        sys_prompt=  load_prompt(prompt_path)
         prefix = load_prefix(prompt_path)
         prompt = '\n\n'.join([prompt, prefix])
         prompt = prompt.format(**{
             "content": text
         })
+        system_message = SystemMessage(content=sys_prompt)
         human_message = HumanMessage(content=prompt)
         required_keys = [
-            "Overall Summary", "Purpose", "Cost", "Revenue", "Contract Duration",
-            "Contractor's Responsibilities", "Key Findings"
+            "Summary", "AnnualReturn", "Volatility", "ManagementFee", "MinimumInvestment",
+            "LockupPeriod", "RiskLevel","Key Findings"
         ]
 
         while True:
             try:
                 print("sumarizing...")
-                response = self.llm.generate([[human_message]])
+                response = self.llm.generate([[system_message, human_message]])
                 response = response.generations[0][0].text
                 print(response)
 
@@ -104,4 +106,5 @@ class PDFProcessor:
         if not parse_result:
             parse_result = "파싱된 텍스트가 없습니다."
         summary = self.summarizer.generate_summary(parse_result)
+
         return parse_result, summary
