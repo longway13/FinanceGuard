@@ -215,8 +215,66 @@ def upload_pdf():
             "file_url": file_path,
             "pdf_id": f"PDF_{pdf_counter}"
         }
+
+        # Mock response data for frontend testing
+        mock_response_data = {
+            "status": "success",
+            "message": "Successfully uploaded file",
+            "filename": filename,
+            "file_url": file_path,
+            "pdf_id": pdf_counter,
+            "summary": "이 금융 상품은 안정적인 수익을 추구하는 중위험 투자 상품입니다. 장기 자산 증식을 목적으로 하는 펀드 상품으로, 분기별 자산 재배분을 통해 위험을 관리하며 시장 상황에 따라 탄력적으로 포트폴리오를 조정합니다. 안정적인 배당 수익을 추구하면서도 연 5-7%의 기대 수익률을 목표로 하고 있습니다. 최소 투자금액은 100만원이며, 장기 투자자들에게 적합한 상품입니다.",
+            "key_values": {
+                "annualReturn": "연 5-7%",
+                "volatility": "보통위험",
+                "managementFee": "1.5%",
+                "minimumInvestment": "100만원",
+                "lockupPeriod": "12개월",
+                "riskLevel": "보통위험"
+            },
+            "key_findings": [
+                "분기별 자산 재배분을 통한 위험 관리",
+                "시장 상황에 따른 탄력적인 포트폴리오 조정",
+                "안정적인 배당 수익 추구"
+            ],
+            "highlights": [
+                {
+                    "id": "highlight_1",
+                    "content": {
+                        "text": "연평균 수익률"
+                    },
+                    "position": {
+                        "pageNumber": 1,
+                        "boundingRect": {
+                            "x1": 100,
+                            "y1": 100,
+                            "x2": 300,
+                            "y2": 120
+                        }
+                    },
+                    "comment": "중요 위험 고지 사항"
+                },
+                {
+                    "id": "highlight_2",
+                    "content": {
+                        "text": "투자자 유의사항"
+                    },
+                    "position": {
+                        "pageNumber": 2,
+                        "boundingRect": {
+                            "x1": 150,
+                            "y1": 200,
+                            "x2": 350,
+                            "y2": 220
+                        }
+                    },
+                    "comment": "투자에 신중"
+                }
+            ]
+        }
         
-        return jsonify(response_data), 200
+        # sample response data
+        return jsonify(mock_response_data), 200
         
     except Exception as e:
         print(f"Error during file upload: {str(e)}")  # 에러 로깅

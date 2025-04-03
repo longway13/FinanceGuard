@@ -110,9 +110,7 @@ export function FileUpload() {
       }
 
       const data = await response.json()
-      const { file_url } = data  // 백엔드 응답에서 file_url 추출
-      const fileId = `pdf_${Date.now()}`
-
+      
       // 업로드 성공 처리
       setUploadProgress(100)
       setUploadedFiles((prev) => [...prev, selectedFile.name])
@@ -129,8 +127,15 @@ export function FileUpload() {
         fileInputRef.current.value = ""
       }
 
-      // 대시보드로 리다이렉트
-      router.push(`/dashboard/${fileId}?fileUrl=${encodeURIComponent(file_url)}`)
+      // 대시보드로 리다이렉트 (모든 데이터와 함께)
+      const queryParams = new URLSearchParams({
+        fileUrl: data.file_url,
+        summary: data.summary,
+        keyValues: JSON.stringify(data.key_values),
+        keyFindings: JSON.stringify(data.key_findings)
+      }).toString()
+      // Router 이동
+      router.push(`/dashboard/${data.pdf_id}?${queryParams}`)
 
     } catch (error) {
       console.error('Upload error:', error)

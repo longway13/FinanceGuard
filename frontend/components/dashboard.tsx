@@ -15,62 +15,60 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
   const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined)
   const [documentData, setDocumentData] = useState({
     overview: {
-      summary: "This is a sample summary of the financial product...",
+      summary: "",
       keyMetrics: {
-        annualReturn: 8.5,
-        volatility: 12.3,
-        managementFee: 1.5,
-        minimumInvestment: 10000,
-        lockupPeriod: 12,
-        riskLevel: "Medium" as const,
+        annualReturn: "-",
+        volatility: "-",
+        managementFee: "-",
+        minimumInvestment: "-",
+        lockupPeriod: "-",
+        riskLevel: "보통위험" as const,
       },
-      keyFindings: [
-        "Finding 1",
-        "Finding 2",
-        "Finding 3"
-      ],
-      recommendations: [
-        "Recommendation 1",
-        "Recommendation 2"
-      ]
+      keyFindings: [],
+      recommendations: []
     },
     disputes: {
-      cases: [
-        {
-          id: "1",
-          title: "Case 1",
-          status: "Resolved",
-          date: "2024-01-01",
-          jurisdiction: "Korea",
-          summary: "Summary 1",
-          keyIssues: ["Issue 1", "Issue 2"],
-          outcome: "Settled",
-          relevance: "This case is relevant to your document because..."
-        }
-      ],
-      totalCases: 1,
-      trendData: [
-        { month: "Jan", count: 5 },
-        { month: "Feb", count: 3 }
-      ]
+      cases: [],
+      totalCases: 0,
+      trendData: []
     }
   })
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
-    // In a real application, you would fetch the document data from your API
-    // For demo purposes, we'll simulate loading the data after a delay
-    const loadData = async () => {
+    const loadData = () => {
       setIsLoading(true)
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1500))
+        // URL에서 파라미터 추출
+        const urlParams = new URLSearchParams(window.location.search)
+        const summary = urlParams.get('summary') || ""
+        const keyValues = JSON.parse(urlParams.get('keyValues') || "{}")
+        const keyFindings = JSON.parse(urlParams.get('keyFindings') || "[]")
+        
+        // documentData 설정
         setDocumentData({
-          overview: mockDocumentData.overview,
-          disputes: mockDocumentData.disputeCases,
+          overview: {
+            summary,
+            keyMetrics: {
+              annualReturn: keyValues.annualReturn || "-",
+              volatility: keyValues.volatility || "-",
+              managementFee: keyValues.managementFee || "-",
+              minimumInvestment: keyValues.minimumInvestment || "-",
+              lockupPeriod: keyValues.lockupPeriod || "-",
+              riskLevel: keyValues.riskLevel || "보통위험",
+            },
+            keyFindings,
+            recommendations: []
+          },
+          disputes: {
+            cases: [],
+            totalCases: 0,
+            trendData: []
+          }
         })
       } catch (error) {
+        console.error('Error parsing URL parameters:', error)
         toast({
           title: "Error loading document",
           description: "There was an error loading the document data. Please try again.",
@@ -81,11 +79,12 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
       }
     }
 
-    loadData()
-  }, [fileId, toast])
+    if (typeof window !== 'undefined') {
+      loadData()
+    }
+  }, [toast])
 
   useEffect(() => {
-    // PDF URL 설정
     if (fileUrl) {
       setPdfUrl(fileUrl)
     }
