@@ -43,7 +43,7 @@ class LLMSummarizer:
                 print("sumarizing...")
                 response = self.llm.generate([[system_message, human_message]])
                 response = response.generations[0][0].text
-                print(response)
+                
 
                 # 멀티라인 대응 파서
                 parsed = {}
@@ -66,11 +66,13 @@ class LLMSummarizer:
 
                 # 마지막 키 처리
                 if current_key:
-                    parsed[current_key] = "\n".join(current_value_lines).strip()
+                    parsed[current_key] = [line.strip() for line in current_value_lines if line.strip()]
 
                 for key in required_keys:
                     if key not in parsed:
                         raise ValueError(f"누락된 항목: {key}")
+                    
+                
                 break
 
             except Exception as e:
@@ -106,5 +108,5 @@ class PDFProcessor:
         if not parse_result:
             parse_result = "파싱된 텍스트가 없습니다."
         summary = self.summarizer.generate_summary(parse_result)
-
+        print(summary)
         return parse_result, summary

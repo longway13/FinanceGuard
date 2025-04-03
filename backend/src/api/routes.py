@@ -325,6 +325,7 @@ def upload_pdf():
         highlight_result = llm_highlighter.highlight(text)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
+        
         print("finished")
         response_data = {
             "status": "success",
@@ -337,7 +338,7 @@ def upload_pdf():
         }
 
         response_json = json.dumps(response_data, cls=OrderedJsonEncoder, ensure_ascii=False)
-        
+
         return jsonify({"success": True, "response" : response_json}), 200
 
     except Exception as e:
