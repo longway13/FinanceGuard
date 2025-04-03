@@ -222,53 +222,7 @@ def upload_pdf():
         print(f"Error during file upload: {str(e)}")  # 에러 로깅
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/pdf/upload', methods=['POST'])
-def upload_file():
-    if 'document' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['document']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
 
-    if file:
-        try:
-            # 파일명 생성 (타임스탬프 추가하여 유니크하게)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            original_filename = secure_filename(file.filename)
-            filename = f"{timestamp}_{original_filename}"
-            
-            # S3에 업로드할 경로
-            s3_path = f"pdf/{filename}"
-            
-            # S3에 파일 업로드
-            s3.upload_fileobj(
-                file,
-                BUCKET_NAME,
-                s3_path,
-                ExtraArgs={
-                    'ContentType': 'application/pdf',
-                    'ACL': 'public-read'  # 파일을 공개적으로 읽을 수 있게 설정
-                }
-            )
-            
-            # presigned URL 생성 (1시간 유효)
-            file_url = generate_presigned_url(BUCKET_NAME, s3_path)
-            
-            if not file_url:
-                return jsonify({'error': 'Failed to generate file URL'}), 500
-
-            return jsonify({
-                'message': 'File uploaded successfully',
-                'file_url': file_url,
-                'filename': filename
-            }), 200
-
-        except Exception as e:
-            print(f"Error during file upload: {str(e)}")
-            return jsonify({'error': str(e)}), 500
-
-    return jsonify({'error': 'File upload failed'}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)

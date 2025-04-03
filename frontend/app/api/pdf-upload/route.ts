@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
     console.log('7. Backend URL:', backendUrl);
     
-    console.log('8. Sending request to backend:', `${backendUrl}/api/pdf/upload`);
+    console.log('8. Sending request to backend:', `${backendUrl}/api/pdf-upload`);
     const backendResponse = await fetch(`${backendUrl}/api/pdf-upload`, {
       method: 'POST',
       body: backendFormData,
