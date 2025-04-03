@@ -170,61 +170,53 @@ def extract_response_from_messages(final_messages, logger=logger):
     }
 
 def process_find_case_result(content):
-    """Process find_case_tool results"""
-    # First, check if content is already in the expected format
-    if isinstance(content, list) and content:
-        # Direct list of formatted cases
-        formatted_cases = content
-        return process_formatted_cases(formatted_cases[0])
-            
-    # Check for various dictionary formats
-    elif isinstance(content, dict):
-        # Check for cases key
-        if "cases" in content:
-            cases = content["cases"]
-            if isinstance(cases, list) and cases:
-                if isinstance(cases[0], str):
-                    # List of formatted case strings
-                    return process_formatted_cases(cases[0])
-                elif isinstance(cases[0], dict):
-                    # List of case objects
-                    if "formatted_case" in cases[0]:
-                        return process_formatted_cases(cases[0]["formatted_case"])
-                    else:
-                        # Try to use any available case data
-                        case_data = cases[0]
-                        return {
-                            "type": "cases",
-                            "response": {
-                                "title": case_data.get("case_name", case_data.get("title", "")),
-                                "summary": case_data.get("summary", ""),
-                                "key points": case_data.get("key_points", ""),
-                                "judge result": case_data.get("judgment", case_data.get("result", ""))
-                            },
-                            "status": "success",
-                            "message": "Response Successful"
-                        }
-        # Check for formatted_cases key
-        elif "formatted_cases" in content:
-            formatted_cases = content["formatted_cases"]
-            if isinstance(formatted_cases, list) and formatted_cases:
-                return process_formatted_cases(formatted_cases[0])
-        # Single case data directly in the root
+    """Process find_case_tool results and format into a standardized dialogue format"""
+    try:
+        # Convert content to string if it's not already
+        if isinstance(content, (dict, list)):
+            content_str = json.dumps(content, ensure_ascii=False)
         else:
+            content_str = str(content)
+            
+        print(content)
+        print("="*50)
+        print(content_str)
+
+        # Define regex pattern for case details
+        pattern = r'제목:\s*(.*?)(?:\s*\n)\s*요약:\s*(.*?)(?:\s*\n)\s*핵심 포인트:\s*(.*?)(?:\s*\n)\s*판결 결과:\s*(.*?)$'
+        
+        # Find case details using regex
+        match = re.search(pattern, content_str, re.DOTALL)
+        
+        if match:
+            title = match.group(1).strip()
+            summary = match.group(2).strip()
+            key_points = match.group(3).strip()
+            judgment = match.group(4).strip()
+            
             return {
-                "type": "cases",
-                "response": {
-                    "title": content.get("case_name", content.get("title", "")),
-                    "summary": content.get("summary", ""),
-                    "key points": content.get("key_points", ""),
-                    "judge result": content.get("judgment", content.get("result", ""))
-                },
-                "status": "success",
-                "message": "Response Successful"
+            "type": "cases",
+            "response": {
+                "title": title if title else "",
+                "summary": summary if summary else "",
+                "key points": key_points if key_points else "",
+                "judge result": judgment if judgment else "",   
+            },
+            "status": "success",
+            "message": "Response Successful"
             }
-    
-    # Fallback - try to parse the content as a single formatted case
-    return process_formatted_cases(str(content))
+            
+        else:
+            raise ValueError("Cannot parse the case details from the content")
+            
+    except Exception as e:
+        logger.error(f"Error processing find case result: {str(e)}")
+        return {
+            "type": "simple_dialogue",
+            "response": "판례 처리 중 오류가 발생했습니다.",
+            "status": "error",
+            "message": str(e)
+        }
 
 def process_simulation_result(content):
     """Process simulate_dispute_tool results"""
