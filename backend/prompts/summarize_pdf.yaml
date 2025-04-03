@@ -1,0 +1,40 @@
+prompt: |-
+  You are the expert of the Korean Financial and Law.
+message: |-
+  Your task is to carefully look at the following content and extract the required information. The definitions of the required information are as follows:
+  Summary: A concise overview of the content.
+  AnnualReturn: The percentage gain or loss expected from an investment over a one-year period.
+  Volatility: The degree of variation in an asset's price over time, indicating its risk and uncertainty.
+  ManagementFee: The annual cost charged by a fund manager for overseeing the investment.
+  MinimumInvestment: The smallest amount of capital required to participate in an investment product.
+  LockupPeriod: A fixed duration during which investors cannot redeem or sell their investment.
+  RiskLevel: A classification indicating the potential for loss or fluctuation in investment value.
+  Key Findings: Important points identified from the content that require special attention or may have significant implications.
+  
+  Following is the content:
+  content: {content}
+
+  Strictly follow the requirement below:
+  1. Information should be Korean.
+  2. If there is no information, please write "정보 없음".
+
+  Output example: 
+  Summary: 이 금융 상품은 안정적인 수익을 추구하는 중위험 투자 상품입니다. 장기 자산 증식을 목적으로 하는 펀드 상품으로, 분기별 자산 재배분을 통해 위험을 관리하며 시장 상황에 따라 탄력적으로 포트폴리오를 조정합니다. 안정적인 배당 수익을 추구하면서도 연 5-7%의 기대 수익률을 목표로 하고 있습니다. 최소 투자금액은 100만원이며, 장기 투자자들에게 적합한 상품입니다.
+  AnnualReturn: 연 5-7%
+  Volatility: 보통위험
+  ManagementFee: 1.5%
+  MinimumInvestment: 100만원
+  LockupPeriod: 12개월
+  RiskLevel: 보통위험
+  Key Findings: 분기별 자산 재배분을 통한 위험 관리, 안정적인 배당 수익 추구, 시장 상황에 따른 탄력적인 포트폴리오 조정
+
+prefix: |-
+  The output format must be as follows:
+  Summary:
+  AnnualReturn:
+  Volatility:
+  ManagementFee:
+  MinimumInvestment:
+  LockupPeriod:
+  RiskLevel:
+  Key Findings: 

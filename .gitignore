@@ -36,3 +36,13 @@ yarn-error.log*
 next-env.d.ts
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
+
+# datasets
+/backend/datasets/*
+!/backend/datasets/.gitkeep
+!/backend/datasets/README.md
+
+
+__pycache__/
+/backend/src/uploads/
+/backend/conf.d/config.yaml

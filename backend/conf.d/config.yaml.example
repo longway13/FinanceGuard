@@ -1,0 +1,8 @@
+openai:
+  key: << Your OpenAI API Key >>
+
+upstage:
+  key: << Your Upstage API Key >>
+
+tavily:
+  key: << Your Tavily API Key >>
