@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 # Local imports
 from ..agent.core import process_query
 from ..tools.tool_registry import get_registered_tools
+from config import UPLOADS_DIR
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -19,10 +20,9 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session management
 
 # Create upload directory
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "..", "uploads")
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+if not os.path.exists(UPLOADS_DIR):
+    os.makedirs(UPLOADS_DIR)
+app.config['UPLOAD_FOLDER'] = UPLOADS_DIR
 
 # Register tools
 tools = get_registered_tools()

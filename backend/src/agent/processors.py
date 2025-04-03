@@ -99,13 +99,25 @@ def extract_response_from_messages(final_messages, logger=logger):
     """Extract appropriate response data from the agent's final messages"""
     
     if not final_messages:
-        return {"type": "simple_dialogue", "response": "응답을 생성하지 못했습니다.", "status": "error", "message": "No response generated"}
+        return {"type": "error", "response": "응답을 생성하지 못했습니다.", "status": "error", "message": "No response generated"}
     
-    # Log message structure
-    logger.info(f"Final messages count: {len(final_messages)}")
+    # Enhanced logging
+    logger.info("=" * 50)
+    logger.info("Processing final messages:")
+    for i, msg in enumerate(final_messages):
+        logger.info(f"Message {i}:")
+        logger.info(f"Type: {type(msg)}")
+        logger.info(f"Class name: {msg.__class__.__name__ if hasattr(msg, '__class__') else 'No class'}")
+        logger.info(f"Content: {msg.content if hasattr(msg, 'content') else msg.get('content', 'No content') if isinstance(msg, dict) else msg}")
+        if hasattr(msg, "tool_calls"):
+            logger.info(f"Tool calls: {msg.tool_calls}")
+    logger.info("=" * 50)
     
     # Look for ToolMessage with content as it contains the actual results
     for message in reversed(final_messages):
+        if isinstance(message, object) and hasattr(message, "__class__"):
+            logger.info(f"Processing message of type: {message.__class__.__name__}")
+            
         if isinstance(message, object) and hasattr(message, "__class__") and message.__class__.__name__ == "ToolMessage":
             if hasattr(message, "content") and message.content:
                 tool_name = message.name if hasattr(message, "name") else "unknown"
@@ -137,8 +149,21 @@ def extract_response_from_messages(final_messages, logger=logger):
                     # If not JSON, try to parse as formatted case directly
                     return process_formatted_cases(message.content)
     
-    # If no ToolMessage with content, check for assistant messages
+    # If no ToolMessage with content, check for assistant messages with improved detection
     for message in reversed(final_messages):
+        logger.info(f"Checking message type: {type(message)}")
+        
+        # Check for AIMessage class directly
+        if hasattr(message, "__class__") and message.__class__.__name__ in ["AIMessage", "HumanMessage"]:
+            if message.__class__.__name__ == "AIMessage" and hasattr(message, "content"):
+                logger.info(f"Found AIMessage with content: {message.content[:50]}...")
+                return {
+                    "type": "no_tool_chat", 
+                    "response": message.content, 
+                    "status": "success", 
+                    "message": "Response Successful"
+                }
+        
         # Handle both dictionary-like objects and other message types
         role = None
         content = None
@@ -154,14 +179,27 @@ def extract_response_from_messages(final_messages, logger=logger):
             content = message.get("content")
             
         if role == "assistant" and content:
+            logger.info(f"Found assistant message with content: {content[:50]}...")
             return {
                 "type": "simple_dialogue", 
                 "response": content, 
                 "status": "success", 
                 "message": "Response Successful"
             }
-            
+    
+    # As a fallback, just return the last message content if any exists
+    for message in reversed(final_messages):
+        if hasattr(message, "content") and message.content:
+            logger.info(f"Fallback: using message content: {message.content[:50]}...")
+            return {
+                "type": "simple_dialogue", 
+                "response": message.content, 
+                "status": "success", 
+                "message": "Response Successful (fallback)"
+            }
+    
     # If we reach here, we couldn't find any useful content
+    logger.error("No valid response content found in any message")
     return {
         "type": "simple_dialogue", 
         "response": "응답을 생성하지 못했습니다. 다른 질문을 시도하거나, 계약서 관련 질문인 경우 '계약 해지 조항 분석해줘'와 같이 더 구체적으로 질문해 보세요.", 
