@@ -128,6 +128,9 @@ def extract_response_from_messages(final_messages, logger=logger):
                     content_str = message.content
                     content = json.loads(content_str)
                     
+                    print("=Content"*50)
+                    print(content)
+                    
                     # Handle different tool types
                     if tool_name == "find_case_tool":
                         return process_find_case_result(content)
@@ -135,6 +138,8 @@ def extract_response_from_messages(final_messages, logger=logger):
                         return process_simulation_result(content)
                     elif tool_name == "web_search_tool":
                         return process_web_search_result(content)
+                    elif tool_name == "find_toxic_clauses_tool":
+                        return content
                     
                     # Default format
                     return {
@@ -320,4 +325,4 @@ def process_web_search_result(content):
         "response": response_text or json.dumps(content, ensure_ascii=False), 
         "status": "success", 
         "message": "Response Successful"
-    }
+            }

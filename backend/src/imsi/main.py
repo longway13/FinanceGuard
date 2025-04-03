@@ -86,7 +86,7 @@ def upload_pdf():
             case_db_path=CASE_DB_PATH,
             embedding_path="datasets/precomputed_embeddings.npz"
         )
-        llm_highlighter = LLMHighlighter(
+        llm_highlighter = ToxicClauseFinder(
             app = app,
             prompt_path=PROMPT_PATH,
             case_retriever=case_retriever
@@ -105,7 +105,7 @@ def upload_pdf():
         if not text:
             return jsonify({"error": "파싱된 텍스트가 없습니다."}), 400
         
-        highlight_result = llm_highlighter.highlight(text)
+        highlight_result = llm_highlighter.find(text)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
 

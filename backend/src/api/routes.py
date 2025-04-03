@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 # Local imports
 from ..agent.core import process_query
 from ..tools.tool_registry import get_registered_tools
-from config import UPLOADS_DIR
+from src.config import UPLOADS_DIR
 
 # Configure logging
 logger = logging.getLogger(__name__)

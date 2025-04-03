@@ -21,7 +21,8 @@ def get_registered_tools() -> List:
     tool_imports = [
         "src.tools.tool_dispute_simulator.simulate_dispute_tool",
         "src.tools.tool_find_case.find_case_tool",
-        "src.tools.tool_chat_web.web_search_tool"
+        "src.tools.tool_chat_web.web_search_tool",
+        "src.tools.tool_find_toxic.find_toxic_clauses_tool"  
     ]
     
     # Import tools dynamically

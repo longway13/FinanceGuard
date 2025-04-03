@@ -1,17 +1,16 @@
 import os
 import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from dotenv import load_dotenv
 from openai import OpenAI
 
 # LangGraph imports
 from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import tools_condition
-from langchain_core.messages import ToolMessage
+# Remove tools_condition import
+from langchain_core.messages import ToolMessage, SystemMessage, HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI
 from src.config import FORMAT_PROMPT_PATH
-
 
 # Local imports
 from .state import AgentState
@@ -75,7 +74,7 @@ class CustomToolNode:
                 # Create a copy of args to avoid modifying the original
                 final_args = dict(tool_args) if isinstance(tool_args, dict) else {}
                 
-                # Special handling for simulation tool
+                # Special handling for tools that need file object
                 if tool_name == "simulate_dispute_tool" and file_obj:
                     logger.info("Adding file_obj to simulation tool arguments")
                     final_args["file_obj"] = file_obj
@@ -83,6 +82,15 @@ class CustomToolNode:
                     # Make sure query is in args
                     if "query" not in final_args and isinstance(tool_args, dict):
                         final_args["query"] = tool_args.get("query", "계약서 시뮬레이션")
+                        
+                    result = tool.invoke(final_args)
+                elif tool_name == "find_toxic_clauses_tool" and file_obj:
+                    logger.info("Adding file_obj to toxic clauses tool arguments")
+                    final_args["file_obj"] = file_obj
+                    
+                    # Make sure query is in args
+                    if "query" not in final_args and isinstance(tool_args, dict):
+                        final_args["query"] = tool_args.get("query", "독소조항 분석")
                         
                     result = tool.invoke(final_args)
                 else:
@@ -101,7 +109,7 @@ class CustomToolNode:
                 import traceback
                 logger.error(traceback.format_exc())
                 
-                # For simulation errors, return a more helpful message
+                # Handle specific tool errors
                 if tool_name == "simulate_dispute_tool":
                     error_msg = {
                         "simulations": [
@@ -109,6 +117,15 @@ class CustomToolNode:
                             "파일이 올바르게 업로드되었는지 확인하시고, 다시 시도해 주세요."
                         ]
                     }
+                    results.append(
+                        ToolMessage(
+                            content=json.dumps(error_msg, ensure_ascii=False),
+                            name=tool_name,
+                            tool_call_id=tool_id,
+                        )
+                    )
+                elif tool_name == "find_toxic_clauses_tool":
+                    error_msg = [{"error": f"독소조항 분석 중 오류가 발생했습니다: {str(e)}"}]
                     results.append(
                         ToolMessage(
                             content=json.dumps(error_msg, ensure_ascii=False),
@@ -170,7 +187,7 @@ def create_formatter(format_prompt_path=FORMAT_PROMPT_PATH):
                 summary_response = client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=messages_for_formatting,
-                    temperature=0.7,
+                    temperature=0.1,
                 )
                 
                 formatted_response = summary_response.choices[0].message.content.strip()
@@ -189,15 +206,92 @@ def create_formatter(format_prompt_path=FORMAT_PROMPT_PATH):
             
     return format_response
 
+def llm_tool_router(state: AgentState):
+    """
+    Custom router function that uses LLM's judgment to determine next step.
+    If the LLM's response contains tool calls, route to tools.
+    Otherwise, route to formatter.
+    """
+    messages = state.get("messages", [])
+    
+    if not messages:
+        return "chatbot"
+    
+    # Check the last message - if it contains tool calls, route to tools
+    last_message = messages[-1]
+    
+    # Check if the message has tool_calls attribute or field
+    has_tool_calls = False
+    
+    if hasattr(last_message, "tool_calls"):
+        has_tool_calls = bool(last_message.tool_calls)
+    elif isinstance(last_message, dict) and last_message.get("tool_calls"):
+        has_tool_calls = bool(last_message.get("tool_calls"))
+    
+    logger.info(f"LLM tool router - Has tool calls: {has_tool_calls}")
+    
+    if has_tool_calls:
+        return "tools"
+    else:
+        return "formatter"
+
 def create_chatbot_node(tools):
     """Create the chatbot node for the agent"""
     
-    # Create LangChain ChatOpenAI instance
+    # Create LangChain ChatOpenAI instance with lower temperature for more reliable tool selection
     llm = ChatOpenAI(
         model="gpt-4o-mini",
-        temperature=1.0,
+        temperature=0.1,  # Lower temperature for more consistent tool selection
         openai_api_key=os.getenv('OPENAI_API_KEY')
     )
+    
+    # Create detailed tool descriptions
+    tool_descriptions = []
+    for tool in tools:
+        name = tool.name
+        description = tool.description
+        
+        # For tools that require files, add an explicit note
+        requires_file = ""
+        if name in ["simulate_dispute_tool", "find_toxic_clauses_tool"]:
+            requires_file = " (참고: 이 도구는 업로드된 계약서 파일이 필요합니다)"
+        
+        tool_descriptions.append(f"- {name}: {description}{requires_file}")
+    
+    # Create a more detailed and structured system prompt to guide the LLM
+    tool_selection_prompt = """
+    당신은 금융계약서를 분석하는 법률 도우미 AI입니다. 사용자의 질문을 분석하여 최적의 도구를 선택해 응답해야 합니다.
+    
+    사용 가능한 도구:
+    {tool_list}
+    
+    도구 선택 가이드라인:
+    1. 계약서 독소조항 분석 (find_toxic_clauses_tool)
+       - 사용 시점: 사용자가 계약서에서 독소조항, 불공정 조항, 불리한 조항, 위험 조항 등을 찾아달라고 요청할 때 사용
+       - 예시 질문: "이 계약서에 독소조항이 있나요?", "불리한 조건이 있는지 알려주세요"
+    
+    2. 계약 분쟁 시뮬레이션 (simulate_dispute_tool)
+       - 사용 시점: 사용자가 계약 해지, 위반, 불이행 상황에서 어떤 결과가 나올지 묻거나 분쟁 해결을 원할 때 사용
+       - 예시 질문: "계약을 해지하면 어떻게 되나요?", "위약금이 발생할까요?", "이 조항을 위반하면 어떻게 되나요?"
+    
+    3. 판례 검색 (find_case_tool)
+       - 사용 시점: 사용자가 특정 법적 상황에 대한 판례, 판결, 법원 결정 등을 찾고자 할 때 사용
+       - 예시 질문: "이와 유사한 판례가 있나요?", "법원은 이런 경우 어떻게 판결했나요?"
+    
+    4. 웹 검색 (web_search_tool)
+       - 사용 시점: 다른 도구로 응답할 수 없는 일반적인 정보나 최신 정보가 필요할 때만 사용
+       - 예시 질문: "최근 금융법 개정 내용이 뭔가요?", "금융감독원의 최신 지침은 무엇인가요?"
+    
+    주의사항:
+    1. 파일이 필요한 도구: simulate_dispute_tool과 find_toxic_clauses_tool은 계약서 파일이 반드시 필요합니다. 파일이 업로드된 경우에만 이 도구를 사용하세요.
+    2. 명확한 경우에만 도구를 호출하세요. 도구 호출이 필요하지 않다면 직접 응답하세요.
+    3. 사용자의 의도를 명확히 파악한 후 적절한 도구를 선택하세요.
+    
+    도구를 사용할 때는 반드시 필요한 인자(args)를 정확히 전달해야 합니다.
+    """
+    
+    # Format the prompt with actual tool descriptions
+    formatted_tool_selection_prompt = tool_selection_prompt.format(tool_list="\n".join(tool_descriptions))
     
     # Bind tools to the LLM
     llm_with_tools = llm.bind_tools(tools)
@@ -208,8 +302,10 @@ def create_chatbot_node(tools):
         file_obj = state.get("file_obj")
         
         # Log if file is present
-        if file_obj:
+        if (file_obj):
             logger.info("File object is present in chatbot node")
+        else:
+            logger.info("No file object in chatbot node")
         
         # Get user's last message - improved extraction logic
         last_user_message = None
@@ -240,10 +336,19 @@ def create_chatbot_node(tools):
         # Log the message before processing
         logger.info(f"Processing message: {last_user_message}")
         
-        # Use the bound LLM
+        # Add file context to the user message if available
+        if file_obj:
+            file_context = "사용자가 계약서 파일을 업로드했습니다. 필요한 경우 계약서 분석 도구를 사용하세요."
+        else:
+            file_context = "사용자가 아직 계약서 파일을 업로드하지 않았습니다. 계약서 분석이 필요한 경우, 파일 업로드를 요청하세요."
+        
+        # Add system message with the tool selection prompt and file context
+        system_msg = SystemMessage(content=f"{formatted_tool_selection_prompt}\n\n{file_context}")
+        messages_with_system = [system_msg] + (messages if isinstance(messages, list) else [messages])
+        
+        # Use the LLM with the enhanced system prompt
         try:
-            response = llm_with_tools.invoke(messages)
-            # Log the response for debugging
+            response = llm_with_tools.invoke(messages_with_system)
             logger.info("LLM Response:")
             logger.info(f"Response type: {type(response)}")
             logger.info(f"Response content: {response.content if hasattr(response, 'content') else response}")
@@ -251,7 +356,7 @@ def create_chatbot_node(tools):
                 logger.info(f"Tool calls: {response.tool_calls}")
         except Exception as e:
             logger.error(f"Error invoking LLM: {e}")
-            response = {"content": "Unable to process the query. Please try again."}
+            response = {"content": "처리 중 오류가 발생했습니다. 다시 시도해 주세요."}
         
         # Convert LangChain message format to the format expected by the state
         ai_message = {
@@ -261,10 +366,10 @@ def create_chatbot_node(tools):
         
         # If there are tool calls, add them to the message
         if hasattr(response, "tool_calls") and response.tool_calls:
-            logger.info(f"Adding tool calls to message: {response.tool_calls}")
+            logger.info(f"Adding tool calls from LLM response: {response.tool_calls}")
             ai_message["tool_calls"] = response.tool_calls
         else:
-            logger.info("No tool calls in response")
+            logger.info("No tool calls in LLM response")
         
         return {"messages": [ai_message]}
     
@@ -286,10 +391,15 @@ def create_legal_assistant_agent(tools) -> StateGraph:
     workflow.add_node("tools", tool_node)
     workflow.add_node("formatter", formatter_node)
     
-    # Define edges using tools_condition from langgraph.prebuilt
+    # Use our custom LLM-based router instead of tools_condition
     workflow.add_conditional_edges(
         "chatbot",
-        tools_condition,
+        llm_tool_router,  # Custom router that relies on LLM's decisions
+        {
+            "tools": "tools",
+            "formatter": "formatter",
+            "chatbot": "chatbot"  # Allow cycling back to chatbot if needed
+        }
     )
     
     # Edge from tools to formatter

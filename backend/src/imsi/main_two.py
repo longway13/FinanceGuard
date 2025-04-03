@@ -77,7 +77,7 @@ class CaseLawRetriever:
             'similarity_score': float(similarities[most_similar_idx])
         }
 
-class LLMHighlighter:
+class ToxicClauseFinder:
     def __init__(self, app, prompt_path: str, case_retriever: CaseLawRetriever):
         self.app = app
         self.prompt_path = prompt_path
@@ -100,7 +100,7 @@ class LLMHighlighter:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
-                temperature=1.0
+                temperature=0.1
             )
             
             # LLM 응답을 그대로 문자열로 반환
@@ -125,7 +125,7 @@ class LLMHighlighter:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini", 
                 messages=messages,
-                temperature=1.0
+                temperature=0.1
             )
             
             result = response.choices[0].message.content

@@ -65,7 +65,7 @@ def format_cases(state: QueryState, format_prompt: str, client: OpenAI) -> Query
                 response = client.chat.completions.create(
                     model="gpt-4o-mini",  # gpt-4o-mini 대신 더 안정적인 모델 사용
                     messages=messages,
-                    temperature=1.0
+                    temperature=0.1
                 )
                 formatted_results.append(response.choices[0].message.content.strip())
                 print(f"Successfully formatted case result")

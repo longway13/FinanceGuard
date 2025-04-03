@@ -61,22 +61,25 @@ class CaseLawRetriever:
             self.case_embeddings = loaded['embeddings']
             self._init_model()  # 모델 초기화 추가
         else:
-            # 기존 방식대로 실시간 계산
-            self._init_model()
-            print("Computing embeddings...")
-            self.case_embeddings = []
-            self.case_texts = []
-            for case in tqdm(self.cases, desc="Processing cases"):
-                self.case_texts.append(case['key'])
-                self.case_embeddings.append(self.model.encode(case['key']))
-            self.case_embeddings = np.array(self.case_embeddings)
+            # # 기존 방식대로 실시간 계산
+            # self._init_model()
+            # print("Computing embeddings...")
+            # self.case_embeddings = []
+            # self.case_texts = []
+            # for case in tqdm(self.cases, desc="Processing cases"):
+            #     self.case_texts.append(case['key'])
+            #     self.case_embeddings.append(self.model.encode(case['key']))
+            # self.case_embeddings = np.array(self.case_embeddings)
             
-            # Save embeddings for future use
-            print("Saving embeddings for future use...")
-            np.savez(
-                self.embedding_path,
-                texts=np.array(self.case_texts, dtype=object),
-                embeddings=self.case_embeddings
+            # # Save embeddings for future use
+            # print("Saving embeddings for future use...")
+            # np.savez(
+            #     self.embedding_path,
+            #     texts=np.array(self.case_texts, dtype=object),
+            #     embeddings=self.case_embeddings
+            # )
+            raise FileNotFoundError(
+                f"Precomputed embeddings not found at {self.embedding_path}. Please compute them first with backend/src/precompute_embeddings.py."
             )
         
         print(f"Loaded {len(self.cases)} cases successfully")
@@ -98,7 +101,8 @@ class CaseLawRetriever:
             'similarity_score': float(similarities[most_similar_idx])
         }
 
-class LLMHighlighter:
+
+class ToxicClauseFinder:
     def __init__(self, openai_api_key: str, prompt_path: str, case_retriever: CaseLawRetriever):
         self.prompt_path = prompt_path
         with open(prompt_path, 'r', encoding='utf-8') as f:
@@ -108,7 +112,7 @@ class LLMHighlighter:
         with open(FORMAT_PROMPT_PATH, 'r', encoding='utf-8') as f:
             self.format_prompt = f.read()
     
-    def format_case(self, case_details: str) -> str:  # 반환 타입을 dict에서 str로 변경
+    def format_case(self, case_details: str) -> str:
         """Format case details using LLM"""
         # Check if input is actually a legal case
         if not case_details or len(case_details.strip()) < 10:  # Arbitrary minimum length for valid legal text
@@ -127,7 +131,7 @@ class LLMHighlighter:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=messages,
-                temperature=1.0
+                temperature=0.1
             )
             
             # LLM 응답을 그대로 문자열로 반환
@@ -137,10 +141,13 @@ class LLMHighlighter:
             return result
             
         except Exception as e:
-            app.logger.error(f"Case formatting error: {str(e)}")
+            if hasattr(app, 'logger'):
+                app.logger.error(f"Case formatting error: {str(e)}")
+            else:
+                print(f"Case formatting error: {str(e)}")
             return f"판례 분석 중 오류가 발생했습니다: {str(e)}"
 
-    def highlight(self, text: str) -> list:
+    def find(self, text: str) -> list:
         """
         text: PDF 전체 텍스트
         반환: 독소 조항 분석 결과 리스트
@@ -155,7 +162,7 @@ class LLMHighlighter:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini", 
                 messages=messages,
-                temperature=1.0
+                temperature=0.1
             )
             
             result = response.choices[0].message.content
@@ -196,11 +203,8 @@ class LLMHighlighter:
                         "유사판례_원문": similar_case["case"],
                         "유사도": similar_case["similarity_score"]
                     }
-                    # OrderedDict를 사용하여 키 순서 보장
-                    ordered_item = OrderedDict()
-                    for key in ["독소조항", "이유", "유사판례_정리", "유사판례_원문", "유사도"]:
-                        ordered_item[key] = reordered_item[key]
-                    reordered_result.append(ordered_item)
+                    
+                    reordered_result.append(reordered_item)
                 
                 print("Analysis complete!")
                 return reordered_result
@@ -234,7 +238,7 @@ case_retriever = CaseLawRetriever(
     case_db_path=CASE_DB_PATH,
     embedding_path="../datasets/precomputed_embeddings.npz"
 )
-llm_highlighter = LLMHighlighter(
+llm_highlighter = ToxicClauseFinder(
     openai_api_key=OPENAI_API_KEY,
     prompt_path=HIGHLIGHT_PROMPT_PATH,
     case_retriever=case_retriever
@@ -271,7 +275,7 @@ def highlight_pdf():
         if not text:
             return jsonify({"error": "파싱된 텍스트가 없습니다."}), 400
         
-        highlight_result = llm_highlighter.highlight(text)
+        highlight_result = llm_highlighter.find(text)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
             

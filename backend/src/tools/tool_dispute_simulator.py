@@ -6,7 +6,7 @@ import json
 import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
-from src.tools.highlight import CaseLawRetriever, DocumentParser, LLMHighlighter
+from src.tools.highlight import CaseLawRetriever, DocumentParser, ToxicClauseFinder
 import logging
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
@@ -66,14 +66,14 @@ def parse_document(state: SimulationState, document_parser: DocumentParser) -> S
         state["error"] = f"Document parsing error: {str(e)}"
         return state
 
-def extract_toxic_clauses(state: SimulationState, llm_highlighter: LLMHighlighter) -> SimulationState:
+def extract_toxic_clauses(state: SimulationState, llm_highlighter: ToxicClauseFinder) -> SimulationState:
     """Extract toxic clauses from the document text"""
     if state.get("error"):
         return state
         
     try:
         logger.info("Extracting toxic clauses...")
-        highlight_result = llm_highlighter.highlight(state["document_text"])
+        highlight_result = llm_highlighter.find(state["document_text"])
         state["toxic_clauses"] = highlight_result
         
         if not state["toxic_clauses"]:
@@ -126,6 +126,14 @@ def format_case(case_details: str, format_prompt: str, client: OpenAI) -> str:
     """Format case details using LLM"""
     try:
         logger.info("Formatting case details...")
+        # Check if input is actually a legal case
+        if not case_details or len(case_details.strip()) < 10:  # Arbitrary minimum length for valid legal text
+            return "유효한 판례 정보가 필요합니다."
+            
+        # Check if the input appears to be a non-legal query
+        if len(case_details.split()) < 5 and not any(legal_term in case_details for legal_term in ["판례", "법원", "계약", "조항"]):
+            return "계약서 분석과 관련된 내용만 처리할 수 있습니다."
+            
         messages = [
             {"role": "system", "content": format_prompt},
             {"role": "user", "content": case_details}
@@ -134,10 +142,13 @@ def format_case(case_details: str, format_prompt: str, client: OpenAI) -> str:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            temperature=1.0
+            temperature=0.1
         )
         
-        return response.choices[0].message.content.strip()
+        result = response.choices[0].message.content.strip()
+        if not result:
+            return "판례 분석 결과가 없습니다."
+        return result
     except Exception as e:
         logger.error(f"Case formatting error: {str(e)}")
         return "판례 분석 실패"
@@ -264,7 +275,7 @@ def run_simulations(state: SimulationState, simulation_prompt: str, client: Open
             response = client.chat.completions.create(
                 model="gpt-4o-mini",  
                 messages=messages,
-                temperature=1.0,
+                temperature=0.1,
             )
             
             state["simulations"].append(response.choices[0].message.content.strip())
@@ -302,7 +313,7 @@ def create_simulation_workflow(
     
     client = OpenAI(api_key=openai_api_key)
     
-    llm_highlighter = LLMHighlighter(
+    llm_highlighter = ToxicClauseFinder(
         openai_api_key=openai_api_key,
         prompt_path=highlight_prompt_path,
         case_retriever=case_retriever
