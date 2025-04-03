@@ -37,7 +37,21 @@ export interface CaseResponse {
   highlights?: string[];
 }
 
-export type BackendResponse = SimpleDialogueResponse | SimulationResponse | CaseResponse;
+export interface HighlightedClauseResponse {
+  type: 'highlighted_clause';
+  message: string;
+  highlights: string[];
+  status?: string;
+}
+
+export interface HighlightsResponse {
+  type: 'highlights';
+  rationale: string;
+  highlights: string[];
+  status?: string;
+}
+
+export type BackendResponse = SimpleDialogueResponse | SimulationResponse | CaseResponse | HighlightedClauseResponse | HighlightsResponse;
 
 // 에러 응답 인터페이스
 export interface ErrorResponse {

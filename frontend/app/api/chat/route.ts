@@ -23,6 +23,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.redirect(new URL('/error', request.nextUrl.origin));
     }
     
+    // 독소 조항 요청 테스트 - 실제 개발 시 이 로직은 백엔드에서 처리
+    if (query.toLowerCase().includes('독소') || query.toLowerCase().includes('조항') || query.toLowerCase().includes('하이라이트')) {
+      const mock_highlights = {
+        "type": "highlights",
+        "rationale": "이 금융 상품은 다양한 수수료가 복잡하게 얽혀 있으며, 일부 조항은 소비자에게 불리한 조건을 포함하고 있습니다. 특히 중도 해지, 유지 수수료, 운용 수수료가 과도하게 책정되어 있어 주의가 필요합니다.",
+        "highlights": [
+          "집합투자증권",
+          "예금성 상품과 구별되는 특징"
+        ]
+      };
+      
+      return NextResponse.json(mock_highlights);
+    }
+    
     // 백엔드 API 연동 준비
     // 실제 백엔드 연동 시, 아래 코드 사용
     const backendUrl = process.env.BACKEND_URL || 'http://0.0.0.0:5000';

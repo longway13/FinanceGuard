@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { PdfViewer } from "@/components/pdf-viewer"
 import { Overview } from "@/components/overview"
-import { DisputeCases } from "@/components/dispute-cases"
 import { Chatbot } from "@/components/chatbot"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
@@ -11,11 +10,25 @@ import { mockDocumentData } from "@/lib/mock-data"
 import type { DisputeCase } from "@/lib/types"
 import { useAppContext } from "@/lib/context"
 
+interface DocumentData {
+  overview: {
+    summary: string;
+    keyMetrics: {
+      annualReturn: string;
+      volatility: string;
+      managementFee: string;
+      minimumInvestment: string;
+      lockupPeriod: string;
+      riskLevel: "보통위험" | "매우높은위험" | "높은위험" | "낮은위험" | "매우낮은위험";
+    };
+    keyFindings: string[];
+    recommendations: string[];
+  }
+}
+
 export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: string }) {
-  const [selectedText, setSelectedText] = useState("")
-  const [pdfUrl, setPdfUrl] = useState<string | undefined>(undefined)
-  const [highlightTexts, setHighlightTexts] = useState<string[]>([])
-  const [documentData, setDocumentData] = useState({
+  const [activeTab, setActiveTab] = useState<string>("overview")
+  const [documentData, setDocumentData] = useState<DocumentData>({
     overview: {
       summary: "",
       keyMetrics: {
@@ -24,20 +37,19 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
         managementFee: "-",
         minimumInvestment: "-",
         lockupPeriod: "-",
-        riskLevel: "보통위험" as const,
+        riskLevel: "보통위험",
       },
       keyFindings: [],
       recommendations: []
-    },
-    disputes: {
-      cases: [],
-      totalCases: 0,
-      trendData: []
     }
   })
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(fileUrl)
+  const [selectedText, setSelectedText] = useState<string>("")
+  const [highlightTexts, setHighlightTexts] = useState<string[]>([])
+  const [userHighlights, setUserHighlights] = useState<string[]>([])
   const { toast } = useToast()
-  const { activeTab, setActiveTab, selectedDisputeId } = useAppContext()
+  const { activeTab: appContextActiveTab, setActiveTab: setAppContextActiveTab } = useAppContext()
 
   useEffect(() => {
     const loadData = () => {
@@ -67,11 +79,6 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
             },
             keyFindings,
             recommendations: []
-          },
-          disputes: {
-            cases: [],
-            totalCases: 0,
-            trendData: []
           }
         })
       } catch (error) {
@@ -101,6 +108,12 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
     setSelectedText(text)
   }
 
+  const handleUserHighlights = (highlights: string[]) => {
+    // 새로운 하이라이트만 userHighlights에 추가 (중복 제거)
+    const uniqueHighlights = Array.from(new Set([...userHighlights, ...highlights]))
+    setUserHighlights(uniqueHighlights)
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
@@ -110,24 +123,21 @@ export function Dashboard({ fileId, fileUrl }: { fileId: string; fileUrl?: strin
           isLoading={isLoading} 
           url={pdfUrl} 
           highlightTexts={highlightTexts}
+          userHighlights={userHighlights}
         />
       </div>
       <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-border">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           <TabsList className="w-full justify-start border-b">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="disputes">Disputes</TabsTrigger>
             <TabsTrigger value="chat">AI Assistant</TabsTrigger>
           </TabsList>
           <div className="flex-1 overflow-hidden">
             <TabsContent value="overview" className="h-full overflow-auto">
               <Overview data={documentData.overview} isLoading={isLoading} />
             </TabsContent>
-            <TabsContent value="disputes" className="h-full overflow-auto">
-              <DisputeCases data={documentData.disputes} isLoading={isLoading} selectedId={selectedDisputeId} />
-            </TabsContent>
             <TabsContent value="chat" className="h-full overflow-hidden">
-              <Chatbot selectedText={selectedText} isLoading={isLoading} />
+              <Chatbot selectedText={selectedText} isLoading={isLoading} onHighlightsReceived={handleUserHighlights} />
             </TabsContent>
           </div>
         </Tabs>

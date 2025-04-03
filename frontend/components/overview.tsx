@@ -101,10 +101,15 @@ export function Overview({ data, isLoading }: OverviewProps) {
   `
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Financial Product Overview</h2>
-        <p className="text-muted-foreground">Comprehensive analysis of the financial document</p>
+    <div className="p-6">
+      <div className="mb-8 space-y-4">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">금융 문서의 핵심 포인트와 주요 하이라이트를 한눈에 확인해보세요</h2>
+        <p className="text-muted-foreground text-lg leading-relaxed">
+          PDF 뷰어에서는 고객님께서 놓치기 쉬운 위험 요소들도 
+          <span className="bg-yellow-100 px-1 mx-1 rounded text-amber-700 font-medium">하이라이트</span> 
+          처리되어 바로 파악할 수 있습니다.
+          <span className="ml-1 inline-block animate-pulse">🔥</span>
+        </p>
       </div>
 
       <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -185,7 +190,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
         </TabsContent>
 
         <TabsContent value="findings" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1  gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Key Findings</CardTitle>
@@ -194,7 +199,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
                 <ul className="space-y-2">
                   {safeData.keyFindings.map((finding, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="flex items-center justify-center w-5 h-5 text-white  rounded-full shrink-0 mt-0.5">✅</span>
                       <span className="text-sm">{finding}</span>
                     </li>
                   ))}
@@ -202,7 +207,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Recommendations</CardTitle>
               </CardHeader>
@@ -210,13 +215,13 @@ export function Overview({ data, isLoading }: OverviewProps) {
                 <ul className="space-y-2">
                   {safeData.recommendations.map((recommendation, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                      <span className="flex items-center justify-center w-5 h-5 text-white bg-green-500 rounded-full shrink-0 mt-0.5">✓</span>
                       <span className="text-sm">{recommendation}</span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
         </TabsContent>
       </Tabs>

@@ -88,16 +88,16 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
 <p>저희 서비스는 금융상품 문서를 쉽게 이해할 수 있도록 도와드리며, 특히 금융상품에 내재된 위험성을 파악하는 데 중점을 두고 있습니다.</p>
 </div>
 <div class="example-questions">
-<h4>💡 다음과 같은 질문들을 해보세요</h4>
+<h4>💡 다음과 같은 질문들을 해보면 좋아요</h4>
 <ul>
 <li><span class="tag risk">위험</span> 이 문서에 나타난 주요 위험 요소는 무엇인가요?</li>
 <li><span class="tag case">판례</span> 수수료와 관련된 분쟁 사례를 보여주세요.</li>
 <li><span class="tag simulation">시뮬레이션</span> 조기 인출 벌금에 대한 분쟁을 시뮬레이션 해주세요.</li>
-<li><span class="tag highlight">조항</span> 유해한 조항을 하이라이트 해주세요.</li>
+<li><span class="tag highlight">조항</span> 수수료와 관련된 유해한 조항을 하이라이트 해주세요.</li>
 </ul>
 </div>
 <div class="welcome-footer">
-<p>이러한 정보를 통해 금융상품 구매 전에 잠재적 리스크를 명확하게 파악하고, 보다 안전한 투자 결정을 내리실 수 있도록 지원합니다.</p>
+<p>이러한 정보를 통해 금융상품 구매 전에 잠재적 리스크를 명확하게 파악하고, 보다 안전한 재테크 결정을 내리실 수 있도록 지원합니다.</p>
 </div>
 </div>`,
       },
@@ -178,6 +178,56 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
             content: {
               type: "text",
               text: backendResponse.message,
+            },
+          };
+          break;
+          
+        case 'highlighted_clause':
+          // 하이라이트 정보를 부모 컴포넌트에 전달
+          if (backendResponse.highlights && Array.isArray(backendResponse.highlights) && onHighlightsReceived) {
+            onHighlightsReceived(backendResponse.highlights);
+          }
+          
+          // 하이라이트 설명 메시지 생성
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "text",
+              text: `<div class="highlight-explanation">
+                <h4>🔍 독소 조항 하이라이트</h4>
+                <p>${backendResponse.message}</p>
+                <div class="highlight-info">
+                  <span class="badge bg-blue-100 text-blue-800 px-2 py-1 rounded">파란색 하이라이트로 PDF에 표시됨</span>
+                </div>
+              </div>`,
+            },
+          };
+          break;
+          
+        case 'highlights':
+          // 하이라이트 정보를 부모 컴포넌트에 전달
+          if (backendResponse.highlights && Array.isArray(backendResponse.highlights) && onHighlightsReceived) {
+            onHighlightsReceived(backendResponse.highlights);
+          }
+          
+          // 하이라이트 설명 메시지 생성
+          assistantMessage = {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: {
+              type: "text",
+              text: `<div class="highlight-explanation">
+                <p>${backendResponse.rationale}</p>
+                <p>PDF 내에 관련 독소조항을 파란색으로 표시했어요 🧐</p>
+                <ul class="space-y-2 mt-2">
+                  ${backendResponse.highlights.map(text => `
+                  <li class="flex items-start gap-2">
+                    <span class="text-blue-500 mt-0.5">✓</span>
+                    <span class="text-sm bg-blue-50/50 px-2 py-1 rounded">${text}</span>
+                  </li>`).join('')}
+                </ul>
+              </div>`,
             },
           };
           break;
@@ -280,7 +330,7 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
     switch (content.type) {
       case "text":
         // 환영 메시지인 경우 HTML로 직접 렌더링
-        if (content.text?.includes('<div class="welcome-message">')) {
+        if (content.text?.includes('<div class="welcome-message">') || content.text?.includes('<div class="highlight-explanation">')) {
           return (
             <div 
               className="prose prose-sm prose-p:my-0.5 prose-headings:my-0.5 prose-ul:my-0.5 prose-li:my-0 dark:prose-invert max-w-none leading-tight"
@@ -290,16 +340,20 @@ export function Chatbot({ selectedText, isLoading, onHighlightsReceived }: Chatb
                   .replace('class="welcome-header"', 'class="mb-0"')
                   .replace('class="example-questions"', 'class="bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm mb-0 mt-0"')
                   .replace('class="welcome-footer"', 'class="text-sm text-gray-600 dark:text-gray-300 italic mt-0"')
+                  .replace('class="highlight-explanation"', 'class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg p-2 shadow-sm"')
+                  .replace('class="highlight-info"', 'class="my-2 flex justify-center"')
                   .replace(/<h3>/g, '<h3 class="text-base font-semibold mb-0 mt-0 text-primary leading-none">')
-                  .replace(/<h4>/g, '<h4 class="text-sm font-medium mb-0 mt-0 flex items-center leading-none">')
-                  .replace(/<p>/g, '<p class="leading-none mb-0 mt-0">')
+                  .replace(/<h4>/g, '<h4 class="text-base font-semibold mb-2 mt-0 flex items-center leading-none text-blue-700">')
+                  .replace(/<p>/g, '<p class="leading-normal mb-2 mt-0">')
                   .replace(/><p>/g, '><p class="mt-0">')
-                  .replace(/<ul>/g, '<ul class="my-0 pl-0 space-y-0">')
-                  .replace(/<li>/g, '<li class="flex items-start my-0 leading-none">')
+                  .replace(/<ul>/g, '<ul class="my-0 space-y-1">')
+                  .replace(/<li>/g, '<li class="my-0 leading-normal">')
                   .replace(/class="tag risk"/g, 'class="inline-block mr-1 px-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 text-xs font-medium rounded"')
                   .replace(/class="tag case"/g, 'class="inline-block mr-1 px-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 text-xs font-medium rounded"')
                   .replace(/class="tag simulation"/g, 'class="inline-block mr-1 px-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs font-medium rounded"')
                   .replace(/class="tag highlight"/g, 'class="inline-block mr-1 px-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 text-xs font-medium rounded"')
+                  .replace(/class="badge/g, 'class="inline-block px-2 py-1 text-sm font-medium rounded')
+                  .replace(/class="mt-2"/g, 'class="mt-3 bg-white dark:bg-gray-800 rounded-lg p-2"')
               }} 
             />
           )

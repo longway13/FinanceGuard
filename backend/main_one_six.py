@@ -242,7 +242,11 @@ def upload_pdf():
                 "금융소비자의 요구가 정당한 것으로 판단될 경우"
             ]
         }
-        
+
+
+
+
+         
         # sample response data
         return jsonify(mock_response_data), 200
         
@@ -325,9 +329,17 @@ def chat():
 
     # 독소조항들
     # mock_highlights  
-
     
-    return jsonify(mock_dispute_case), 200
+    mock_highlights = {
+        "type": "highlights",
+        "rationale": "이 금융 상품은 다양한 수수료가 복잡하게 얽혀 있으며, 일부 조항은 소비자에게 불리한 조건을 포함하고 있습니다. 특히 중도 해지, 유지 수수료, 운용 수수료가 과도하게 책정되어 있어 주의가 필요합니다.",
+        "highlights": [
+        "집합투자증권",
+        "예금성 상품과 구별되는 특징",
+    ]
+  }
+    
+    return jsonify(mock_highlights), 200
 
 
 
