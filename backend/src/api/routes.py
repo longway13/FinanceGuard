@@ -323,6 +323,8 @@ def upload_pdf():
             return jsonify({"error": "파싱된 텍스트가 없습니다."}), 400
         
         highlight_result = llm_highlighter.highlight(text)
+
+        print(highlight_result)
         if not highlight_result:
             return jsonify({"error": "분석 결과가 없습니다."}), 400
         
