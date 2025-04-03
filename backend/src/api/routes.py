@@ -27,12 +27,6 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)  # For session management
 pdf_counter = 0
 
-# # Create upload directory - 삭제 예정
-# UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "..", "uploads")
-# if not os.path.exists(UPLOAD_FOLDER):
-#     os.makedirs(UPLOAD_FOLDER)
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 # Register tools
 tools = get_registered_tools()
 
@@ -250,53 +244,6 @@ def index():
     </html>
     '''
 
-# @app.route('/upload', methods=['POST'])
-# def upload_file():
-#     if 'file' not in request.files:
-#         return jsonify({"success": False, "error": "No file part"}), 400
-    
-#     file = request.files['file']
-#     if file.filename == '':
-#         return jsonify({"success": False, "error": "No selected file"}), 400
-    
-#     if file and file.filename.endswith('.pdf'):
-#         try:
-#             # Generate unique filename to prevent collisions
-#             unique_filename = str(uuid.uuid4()) + '.pdf'
-#             file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-#             file.save(file_path)
-            
-#             # Remove old file if exists
-#             if 'pdf_file_path' in session and os.path.exists(session['pdf_file_path']):
-#                 try:
-#                     os.remove(session['pdf_file_path'])
-#                 except:
-#                     pass
-                    
-#             # Store the file path in session for later use
-#             session['pdf_file_path'] = file_path
-#             session['original_filename'] = file.filename
-            
-#             return jsonify({"success": True, "filename": file.filename})
-#         except Exception as e:
-#             logger.error(f"Error saving file: {e}")
-#             return jsonify({"success": False, "error": str(e)}), 500
-#     else:
-#         return jsonify({"success": False, "error": "Only PDF files are allowed"}), 400
-
-# @app.route('/reset', methods=['POST'])
-# def reset_session():
-#     # Remove the stored file if it exists
-#     if 'pdf_file_path' in session:
-#         try:
-#             os.remove(session['pdf_file_path'])
-#         except:
-#             pass
-    
-#     # Clear the session
-#     session.clear()
-#     return jsonify({"success": True})
-
 @app.route('/api/pdf/upload', methods=['POST'])
 def upload_pdf():
     """
@@ -343,21 +290,23 @@ def upload_pdf():
         document_parser = DocumentParser(API_KEY)
         llm_summarizer = LLMSummarizer()
         pdf_processor = PDFProcessor(document_parser, llm_summarizer)
-        file.seek(0)
 
         #여기서 summary 추출
+        response = s3.get_object(Bucket=BUCKET_NAME, Key="pdf/0")
+        file = response['Body'] 
+
         summary = pdf_processor.process_pdf(file)
 
-        #여기서 highlight 추출
-        API_KEY = get_upstage_api_key("backend/conf.d/config.yaml")
         PROMPT_PATH = "prompt/highlight_prompt.txt"
         CASE_DB_PATH = "datasets/case_db.json"
 
         document_parser = DocumentParser(API_KEY)
+
         case_retriever = CaseLawRetriever(
             case_db_path=CASE_DB_PATH,
             embedding_path="datasets/precomputed_embeddings.npz"
         )
+
         llm_highlighter = LLMHighlighter(
             app = app,
             prompt_path=PROMPT_PATH,

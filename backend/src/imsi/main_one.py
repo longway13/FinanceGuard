@@ -23,7 +23,7 @@ class LLMSummarizer:
         반환: 생성된 요약 문자열
         
         """
-        prompt_path = "prompt/summarize_pdf.yaml"
+        prompt_path = "backend/prompts/summarize_pdf.yaml"
         prompt = load_message(prompt_path)
         prefix = load_prefix(prompt_path)
         prompt = '\n\n'.join([prompt, prefix])

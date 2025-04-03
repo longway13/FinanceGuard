@@ -86,7 +86,7 @@ class LLMHighlighter:
         get_openai_api_key()
         self.client = OpenAI()
         self.case_retriever = case_retriever
-        with open("prompt/format_output.txt", 'r', encoding='utf-8') as f:
+        with open("backend/prompts/format_output.txt", 'r', encoding='utf-8') as f:
             self.format_prompt = f.read()
     
     def format_case(self, case_details: str) -> str:  # 반환 타입을 dict에서 str로 변경
