@@ -12,12 +12,12 @@ interface OverviewProps {
   data?: {
     summary: string
     keyMetrics: {
-      annualReturn: number
-      volatility: number
-      managementFee: number
-      minimumInvestment: number
-      lockupPeriod: number
-      riskLevel: "Low" | "Medium" | "High"
+      annualReturn: string
+      volatility: string
+      managementFee: string
+      minimumInvestment: string
+      lockupPeriod: string
+      riskLevel: "매우높은위험" | "높은위험" | "보통위험" | "낮은위험" | "매우낮은위험"
     }
     keyFindings: string[]
     recommendations: string[]
@@ -32,15 +32,15 @@ export function Overview({ data, isLoading }: OverviewProps) {
   const safeData = data || {
     summary: "",
     keyMetrics: {
-      annualReturn: 0,
-      volatility: 0,
-      managementFee: 0,
-      minimumInvestment: 0,
-      lockupPeriod: 0,
-      riskLevel: "Medium" as const,
+      annualReturn: "-",
+      volatility: "-",
+      managementFee: "-",
+      minimumInvestment: "-",
+      lockupPeriod: "-",
+      riskLevel: "보통위험" as const,
     },
     keyFindings: [],
-    recommendations: [],
+    recommendations: []
   }
 
   if (isLoading) {
@@ -58,23 +58,20 @@ export function Overview({ data, isLoading }: OverviewProps) {
   }
 
   const getRiskBadge = (riskLevel: string) => {
-    if (riskLevel === "Low")
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          Low Risk
-        </Badge>
-      )
-    if (riskLevel === "Medium")
-      return (
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-          Medium Risk
-        </Badge>
-      )
-    return (
-      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-        High Risk
-      </Badge>
-    )
+    switch (riskLevel) {
+      case "매우높은위험":
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">매우 높은 위험</Badge>
+      case "높은위험":
+        return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">높은 위험</Badge>
+      case "보통위험":
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">보통 위험</Badge>
+      case "낮은위험":
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">낮은 위험</Badge>
+      case "매우낮은위험":
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">매우 낮은 위험</Badge>
+      default:
+        return <Badge variant="outline">알 수 없음</Badge>
+    }
   }
 
   // Sample markdown content for demonstration
@@ -104,10 +101,15 @@ export function Overview({ data, isLoading }: OverviewProps) {
   `
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Financial Product Overview</h2>
-        <p className="text-muted-foreground">Comprehensive analysis of the financial document</p>
+    <div className="p-6">
+      <div className="mb-8 space-y-4">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">금융 문서의 핵심 포인트와 주요 하이라이트를 한눈에 확인해보세요</h2>
+        <p className="text-muted-foreground text-lg leading-relaxed">
+          PDF 뷰어에서는 고객님께서 놓치기 쉬운 위험 요소들도 
+          <span className="bg-yellow-100 px-1 mx-1 rounded text-amber-700 font-medium">하이라이트</span> 
+          처리되어 바로 파악할 수 있습니다.
+          <span className="ml-1 inline-block animate-pulse">🔥</span>
+        </p>
       </div>
 
       <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -143,8 +145,8 @@ export function Overview({ data, isLoading }: OverviewProps) {
                     <TrendingUp className="h-4 w-4 text-green-500" />
                     <span className="text-sm font-medium">Annual Return</span>
                   </div>
-                  <div className="text-2xl font-bold">{safeData.keyMetrics.annualReturn}%</div>
-                  <div className="text-xs text-muted-foreground">Historical average</div>
+                  <div className="text-2xl font-bold">{safeData.keyMetrics.annualReturn}</div>
+                  <div className="text-xs text-muted-foreground">Expected return</div>
                 </div>
 
                 <div className="flex flex-col space-y-1.5 p-4 border rounded-lg">
@@ -152,8 +154,8 @@ export function Overview({ data, isLoading }: OverviewProps) {
                     <TrendingDown className="h-4 w-4 text-amber-500" />
                     <span className="text-sm font-medium">Volatility</span>
                   </div>
-                  <div className="text-2xl font-bold">{safeData.keyMetrics.volatility}%</div>
-                  <div className="text-xs text-muted-foreground">Standard deviation</div>
+                  <div className="text-2xl font-bold">{safeData.keyMetrics.volatility}</div>
+                  <div className="text-xs text-muted-foreground">Risk indicator</div>
                 </div>
 
                 <div className="flex flex-col space-y-1.5 p-4 border rounded-lg">
@@ -161,7 +163,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
                     <Percent className="h-4 w-4 text-blue-500" />
                     <span className="text-sm font-medium">Management Fee</span>
                   </div>
-                  <div className="text-2xl font-bold">{safeData.keyMetrics.managementFee}%</div>
+                  <div className="text-2xl font-bold">{safeData.keyMetrics.managementFee}</div>
                   <div className="text-xs text-muted-foreground">Annual fee</div>
                 </div>
 
@@ -170,7 +172,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
                     <DollarSign className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium">Minimum Investment</span>
                   </div>
-                  <div className="text-2xl font-bold">${safeData.keyMetrics.minimumInvestment.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{safeData.keyMetrics.minimumInvestment}</div>
                   <div className="text-xs text-muted-foreground">Initial investment</div>
                 </div>
 
@@ -179,7 +181,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
                     <Calendar className="h-4 w-4 text-purple-500" />
                     <span className="text-sm font-medium">Lockup Period</span>
                   </div>
-                  <div className="text-2xl font-bold">{safeData.keyMetrics.lockupPeriod} months</div>
+                  <div className="text-2xl font-bold">{safeData.keyMetrics.lockupPeriod}</div>
                   <div className="text-xs text-muted-foreground">Minimum holding period</div>
                 </div>
               </div>
@@ -188,7 +190,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
         </TabsContent>
 
         <TabsContent value="findings" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1  gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Key Findings</CardTitle>
@@ -197,7 +199,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
                 <ul className="space-y-2">
                   {safeData.keyFindings.map((finding, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <span className="flex items-center justify-center w-5 h-5 text-white  rounded-full shrink-0 mt-0.5">✅</span>
                       <span className="text-sm">{finding}</span>
                     </li>
                   ))}
@@ -205,7 +207,7 @@ export function Overview({ data, isLoading }: OverviewProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Recommendations</CardTitle>
               </CardHeader>
@@ -213,13 +215,13 @@ export function Overview({ data, isLoading }: OverviewProps) {
                 <ul className="space-y-2">
                   {safeData.recommendations.map((recommendation, index) => (
                     <li key={index} className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                      <span className="flex items-center justify-center w-5 h-5 text-white bg-green-500 rounded-full shrink-0 mt-0.5">✓</span>
                       <span className="text-sm">{recommendation}</span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
         </TabsContent>
       </Tabs>

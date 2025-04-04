@@ -1,6 +1,7 @@
 import type React from "react"
 import "@/app/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AppProvider } from "@/lib/context"
 import type { Metadata } from "next"
 import "./globals.css"
 
@@ -18,11 +19,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-      <script src="//mozilla.github.io/pdf.js/build/pdf.js"></script>
+      <script src="//mozilla.github.io/pdf.js@/build/pdf.js"></script>
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+          <AppProvider>
+            {children}
+          </AppProvider>
         </ThemeProvider>
       </body>
     </html>

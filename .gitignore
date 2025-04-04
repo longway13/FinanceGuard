@@ -36,3 +36,21 @@ yarn-error.log*
 next-env.d.ts
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
+
+# api key
+/backend/api_key.yaml
+/frontend/api_key.yaml
+
+# env
+/backend/.env
+/backend/conf.d
+/frontend/.env
+/backend/.env.local
+/frontend/.env.local
+# backend
+/backend/pycache
+/backend/__pycache__
+/backend/uploads
+/backend/uploads/*
+/backend/uploads/pdf
+/backend/uploads/pdf/*

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
-import { PdfUploadRequest, PdfUploadResponse } from "@/app/api/types"
 
 export function FileUpload() {
   const [isDragging, setIsDragging] = useState(false)
@@ -20,7 +19,6 @@ export function FileUpload() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -82,83 +80,100 @@ export function FileUpload() {
     else return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
-  const handleFileUpload = async (file: File) => {
-    try {
-      setIsUploading(true);
-      setError(null);
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please select a PDF document to upload",
+        variant: "destructive",
+      })
+      return
+    }
 
-      // 1. 파일 크기 검증 (10MB 제한)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        throw new Error('File size exceeds 10MB limit');
+    setIsUploading(true)
+    setUploadProgress(0)
+
+    // 업로드 시작 시 토스트 메시지 표시
+    toast({
+      title: "Upload started",
+      description: "Your document is being uploaded and processed...",
+    })
+
+    try {
+      // 업로드 진행 상태를 시뮬레이션 (실제로는 진행 상태를 보려면 서버 응답이 필요)
+      const updateProgress = () => {
+        setUploadProgress(prev => {
+          // 95%까지만 진행 (실제 완료는 서버 응답 후)
+          if (prev < 95) {
+            return prev + (5 + Math.random() * 10)
+          }
+          return prev
+        })
       }
 
-      // 2. FormData 생성 및 파일 추가
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('fileName', file.name);
-      formData.append('fileType', file.type);
-      formData.append('fileSize', file.size.toString());
+      // 진행 상태 업데이트 시작
+      const progressInterval = setInterval(updateProgress, 500)
 
-      // 3. API 요청 설정
+      // FormData 생성
+      console.log(selectedFile)
+      const formData = new FormData()
+      formData.append('document', selectedFile)
+
+      // Next.js API 라우트로 파일 업로드
       const response = await fetch('/api/pdf-upload', {
         method: 'POST',
         body: formData,
-      });
+      })
 
-      // 4. 응답 상태 확인
+      // 진행 상태 업데이트 중지
+      clearInterval(progressInterval)
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error('Upload failed')
       }
 
-      // 5. 응답 데이터 파싱
-      const data: PdfUploadResponse = await response.json();
+      const data = await response.json()
       
-      // 6. 응답 데이터 검증
-      if (!data.pdfId || !data.url) {
-        throw new Error('Invalid response format from server');
-      }
+      // 업로드 성공 처리
+      setUploadProgress(100)
+      setUploadedFiles((prev) => [...prev, selectedFile.name])
 
-      // 7. 성공 처리
-      setUploadedFiles(prev => [...prev, file.name]);
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-
-      // 8. 성공 메시지 표시
       toast({
-        title: 'Success',
-        description: 'PDF file uploaded successfully',
-        variant: 'default',
-      });
+        title: "Upload successful",
+        description: "Your document has been uploaded and is being analyzed",
+        variant: "default",
+      })
 
-      // 9. 대시보드로 리다이렉트
-      router.push(`/dashboard/${data.pdfId}`);
+      // 상태 초기화
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+
+      // 대시보드로 리다이렉트 (모든 데이터와 함께)
+      console.log(data)
+      const queryParams = new URLSearchParams({
+        fileUrl: data.file_url,
+        summary: data.summary,
+        keyValues: JSON.stringify(data.key_values),
+        keyFindings: JSON.stringify(data.key_findings),
+        highlights: JSON.stringify(data.highlights)
+      }).toString()
+      // Router 이동
+      router.push(`/dashboard/${data.pdf_id}?${queryParams}`)
 
     } catch (error) {
-      console.error('Error uploading PDF:', error);
-      
-      // 10. 에러 메시지 설정
-      const errorMessage = error instanceof Error 
-        ? error.message 
-        : 'Failed to upload PDF';
-      
-      setError(errorMessage);
-
-      // 11. 에러 토스트 메시지 표시
+      console.error('Upload error:', error)
       toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+        title: "Upload failed",
+        description: "There was an error uploading your document. Please try again.",
+        variant: "destructive",
+      })
     } finally {
-      // 12. 업로드 상태 초기화
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsUploading(false)
+      setUploadProgress(0)
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -228,7 +243,20 @@ export function FileUpload() {
                   <p className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
                 </div>
               </div>
-              <Button onClick={() => handleFileUpload(selectedFile)}>Upload and Analyze</Button>
+              <Button 
+                onClick={handleFileUpload} 
+                disabled={isUploading}
+                className="min-w-[120px]"
+              >
+                {isUploading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                    <span>Uploading...</span>
+                  </div>
+                ) : (
+                  'Upload and Analyze'
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>

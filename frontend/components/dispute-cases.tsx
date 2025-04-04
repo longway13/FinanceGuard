@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertTriangle, ChevronRight, ExternalLink, Filter } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,9 +18,10 @@ interface DisputeCasesProps {
     trendData: { month: string; count: number }[]
   }
   isLoading: boolean
+  selectedId?: string | null
 }
 
-export function DisputeCases({ data, isLoading }: DisputeCasesProps) {
+export function DisputeCases({ data, isLoading, selectedId }: DisputeCasesProps) {
   const [selectedCase, setSelectedCase] = useState<DisputeCase | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -30,6 +31,17 @@ export function DisputeCases({ data, isLoading }: DisputeCasesProps) {
     totalCases: 0,
     trendData: [],
   }
+
+  // 선택된 ID가 있으면 해당 사례를 찾아 대화상자를 엽니다
+  useEffect(() => {
+    if (selectedId && !isLoading) {
+      const foundCase = safeData.cases.find(c => c.id === selectedId);
+      if (foundCase) {
+        setSelectedCase(foundCase);
+        setIsDialogOpen(true);
+      }
+    }
+  }, [selectedId, isLoading, safeData.cases]);
 
   if (isLoading) {
     return (

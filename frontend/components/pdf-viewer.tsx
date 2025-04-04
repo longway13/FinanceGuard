@@ -1,401 +1,168 @@
 "use client"
 
-import { useState, useRef } from "react"
-import {
-  PdfLoader,
-  PdfHighlighter,
-  Highlight,
-  TextHighlight,
-  AreaHighlight,
-  useHighlightContainerContext,
-  usePdfHighlighterContext,
-  MonitoredHighlightContainer,
-  Tip,
-  PdfHighlighterUtils,
-  ViewportHighlight,
-} from "react-pdf-highlighter-extended"
+import { useState, useEffect } from "react"
+import { Document, Page, pdfjs } from "react-pdf"
+import "react-pdf/dist/esm/Page/AnnotationLayer.css"
+import "react-pdf/dist/esm/Page/TextLayer.css"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Button } from "@/components/ui/button"
-import { Trash2, Camera, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+// PDF.js worker 설정
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
 
 interface PdfViewerProps {
   fileId: string
   onTextSelect?: (text: string) => void
   isLoading?: boolean
   url?: string
+  highlightTexts?: string[] // 하이라이트할 텍스트 목록
+  userHighlights?: string[] // 사용자가 하이라이트한 텍스트 목록
 }
 
-// Custom highlight interface with additional properties
-interface CustomHighlight extends Omit<Highlight, 'position'> {
-  comment?: string
-  category?: "default" | "important" | "question"
-  imageUrl?: string
-  position: {
-    boundingRect: {
-      x1: number
-      y1: number
-      x2: number
-      y2: number
+export function PdfViewer({
+  fileId,
+  onTextSelect,
+  isLoading,
+  url,
+  highlightTexts = [],
+  userHighlights = []
+}: PdfViewerProps) {
+  // console.log(highlightTexts)
+  const [numPages, setNumPages] = useState<number>(0)
+  const [pageNumber, setPageNumber] = useState<number>(1)
+  const [highlights, setHighlights] = useState<
+    Array<{
+      text: string
+      page: number
+      position: { x: number; y: number }
       width: number
       height: number
-      pageNumber: number
-    }
-    rects: Array<any>
-  }
-}
-
-interface AreaAnalysisResponse {
-  text?: string
-  analysis?: string
-  error?: string
-}
-
-// 백엔드 응답을 위한 인터페이스 추가
-interface ToxicClauseResponse {
-  text: string;
-  position: {
-    pageNumber: number;
-    boundingRect: {
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      width: number;
-      height: number;
-    };
-  };
-}
-
-// Function to send area screenshot to backend
-async function sendAreaToBackend(data: {
-  image: string
-  position: {
-    boundingRect: {
-      x1: number
-      y1: number
-      x2: number
-      y2: number
-    }
-    pageNumber: number
-  }
-}): Promise<AreaAnalysisResponse> {
-  try {
-    const response = await fetch('/api/analyze-area', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to analyze area')
-    }
-
-    return await response.json()
-  } catch (error) {
-    console.error('Error analyzing area:', error)
-    throw error
-  }
-}
-
-// Highlight popup component
-const HighlightPopup = ({ highlight }: { highlight: ViewportHighlight<CustomHighlight> }) => {
-  return (
-    <div className="bg-white shadow-lg rounded-lg p-2 border">
-      <div className="flex items-center gap-2">
-        <span className="text-sm">{highlight.content?.text}</span>
-        {highlight.comment && (
-          <div className="text-xs text-muted-foreground">{highlight.comment}</div>
-        )}
-        {highlight.imageUrl && (
-          <img 
-            src={highlight.imageUrl} 
-            alt="Captured area" 
-            className="max-w-[200px] h-auto rounded border"
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Custom highlight container
-const HighlightContainer = ({ 
-  editHighlight,
-  onAreaCapture,
-}: { 
-  editHighlight: (id: string, edit: Partial<CustomHighlight>) => void
-  onAreaCapture: (image: string, position: any) => void
-}) => {
-  const {
-    highlight,
-    isScrolledTo,
-    screenshot,
-    viewportToScaled,
-  } = useHighlightContainerContext<CustomHighlight>()
-
-  const [isCapturing, setIsCapturing] = useState(false)
+      isUserHighlight?: boolean
+    }>
+  >([])
   const { toast } = useToast()
 
-  const isTextHighlight = !Boolean(highlight.content?.image)
-
-  let highlightColor = "rgba(255, 226, 143, 0.3)"
-  if (highlight.category === "important") {
-    highlightColor = "rgba(239, 90, 104, 0.3)"
-  } else if (highlight.category === "question") {
-    highlightColor = "rgba(154, 208, 220, 0.3)"
-  }
-
-  const handleAreaCapture = async () => {
-    try {
-      setIsCapturing(true)
-      const image = screenshot(highlight.position.boundingRect)
-      const scaledPosition = viewportToScaled(highlight.position.boundingRect)
-      
-      await onAreaCapture(image, {
-        boundingRect: scaledPosition,
-        pageNumber: highlight.position.pageNumber,
-      })
-
-      toast({
-        title: "Area captured",
-        description: "The selected area has been captured and sent for analysis",
-      })
-    } catch (error) {
-      toast({
-        title: "Error capturing area",
-        description: "Failed to capture and analyze the selected area",
-        variant: "destructive",
-      })
-    } finally {
-      setIsCapturing(false)
-    }
-  }
-
-  const component = isTextHighlight ? (
-    <TextHighlight
-      highlight={highlight}
-      isScrolledTo={isScrolledTo}
-      style={{ background: highlightColor }}
-    />
-  ) : (
-    <AreaHighlight
-      highlight={highlight}
-      isScrolledTo={isScrolledTo}
-      style={{ background: highlightColor }}
-    />
-  )
-
-  const highlightTip: Tip = {
-    position: highlight.position,
-    content: (
-      <div className="bg-white shadow-lg rounded-lg p-2 border">
-        <div className="flex items-center gap-2">
-          <HighlightPopup highlight={highlight} />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleAreaCapture}
-            disabled={isCapturing}
-          >
-            {isCapturing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Camera className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </div>
-    ),
-  }
-
-  return (
-    <MonitoredHighlightContainer
-      highlightTip={highlightTip}
-      key={highlight.id}
-    >
-      {component}
-    </MonitoredHighlightContainer>
-  )
-}
-
-// Selection tip component
-const SelectionTip = () => {
-  const { getCurrentSelection } = usePdfHighlighterContext()
-
-  const createHighlight = (category: CustomHighlight["category"]) => {
-    const selection = getCurrentSelection()
-    if (selection) {
-      const highlight = {
-        content: selection.content,
-        position: selection.position,
-        category,
-        id: Math.random().toString(16).slice(2),
-      }
-      selection.emit("finishSelection", highlight)
-    }
-  }
-
-  return (
-    <div className="bg-white shadow-lg rounded-lg p-2 border">
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          onClick={() => createHighlight("default")}
-        >
-          Highlight
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => createHighlight("important")}
-        >
-          Important
-        </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => createHighlight("question")}
-        >
-          Question
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-// 백엔드 통신 함수 추가
-async function analyzeToxicClauses(pdfId: string): Promise<ToxicClauseResponse[]> {
-  try {
-    const response = await fetch(`/api/analyze-toxic-clauses?pdfId=${pdfId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+  // PDF 로드 시 텍스트 검색 및 하이라이트
+  const onDocumentLoadSuccess = async ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages)
+    console.log(numPages)
+    if (!url) return
     
-    if (!response.ok) {
-      throw new Error('Failed to analyze toxic clauses');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error analyzing toxic clauses:', error);
-    throw error;
+    // 페이지 로드 후 하이라이트 처리
+    processHighlights()
+    console.log(numPages)
   }
-}
 
-export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
-  const [highlights, setHighlights] = useState<CustomHighlight[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const highlighterUtilsRef = useRef<PdfHighlighterUtils>(null)
-  const { toast } = useToast()
+  // userHighlights가 변경될 때마다 하이라이트 다시 처리
+  useEffect(() => {
+    if (numPages > 0 && url) {
+      processHighlights()
+    }
+  }, [userHighlights, highlightTexts, numPages])
 
-  // 하이라이트 생성 함수
-  const createHighlight = (text: string, position: {
-    pageNumber: number;
-    boundingRect: {
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      width: number;
-      height: number;
-    };
-  }) => {
-    const newHighlight: CustomHighlight = {
-      id: `highlight-${Date.now()}`,
-      position: {
-        boundingRect: {
-          ...position.boundingRect,
-          pageNumber: position.pageNumber
-        },
-        rects: []
-      },
-      content: {
-        text: text
-      },
-      comment: `위험 조항: ${text}`,
-      category: "important"
-    };
-
-    setHighlights(prev => [...prev, newHighlight]);
-  };
-
-  // 독소 조항 분석 및 하이라이트 함수
-  const analyzeAndHighlightToxicClauses = async () => {
+  // 하이라이트 처리 로직
+  const processHighlights = async () => {
+    if (!url) return
+    
+    const newHighlights: Array<{
+      text: string
+      page: number
+      position: { x: number; y: number }
+      width: number
+      height: number
+      isUserHighlight?: boolean
+    }> = []
+    
     try {
-      const toxicClauses = await analyzeToxicClauses(fileId);
+      // PDF 문서 가져오기
+      const pdfDocument = await pdfjs.getDocument(url).promise
       
-      // 기존 하이라이트 초기화
-      setHighlights([]);
+      // PDF 문서에서 직접 페이지 수를 가져와서 사용
+      const totalPages = pdfDocument.numPages
+      setNumPages(totalPages)
       
-      // 각 독소 조항에 대해 하이라이트 생성
-      toxicClauses.forEach(clause => {
-        createHighlight(clause.text, clause.position);
-      });
+      // 중복 하이라이트 추적을 위한 집합
+      const highlightedPositions = new Set();
+      
+      // 모든 페이지 처리
+      for (let i = 1; i <= totalPages; i++) {
+        const page = await pdfDocument.getPage(i)
+        const scale = 0.99
+        const viewport = page.getViewport({ scale })
+        const textContent = await page.getTextContent()
+        
+        // 기본 하이라이트와 사용자 하이라이트 모두 처리
+        const allHighlights = [
+          ...highlightTexts.map(text => ({ text, isUser: false })),
+          ...userHighlights.map(text => ({ text, isUser: true }))
+        ]
+        
+        // 각 하이라이트 키워드에 대해 처리
+        allHighlights.forEach(({ text, isUser }) => {
+          if (!text || text.trim() === '') return
+          // 대소문자 구분 없이 비교하기 위한 소문자 변환
+          const lowercaseText = text.toLowerCase()
+          
+          // 각 텍스트 아이템에서 키워드 검색
+          textContent.items.forEach((item: any) => {
+            if (!item.str) return
+            
+            const itemText = item.str
+            const lowercaseItemText = itemText.toLowerCase()
+            
+            // 이미 하이라이트된 위치인지 확인
+            const positionKey = `${i}-${item.transform[4]}-${item.transform[5]}`;
+            if (highlightedPositions.has(positionKey)) return;
+            
+            // 다음 조건 중 하나 충족시 하이라이트
+            let shouldHighlight = false;
+            
+            // 1. 정확한 포함 관계
+            if (lowercaseItemText.includes(lowercaseText)) {
+              shouldHighlight = true;
+            } 
+            // 2. 긴 하이라이트 문장에 대한 처리 (문장이 길고, 의미 있는 단어가 있을 경우)
+            else if (lowercaseText.length > 15) {
+              // 문장에서 의미 있는 단어 추출 (3글자 이상)
+              const significantWords = lowercaseText.split(/\s+/).filter(word => word.length > 3);
+              
+              // 단어들 중 충분한 수가 매칭되는지 확인 (예: 30% 이상)
+              const matchCount = significantWords.filter(word => lowercaseItemText.includes(word)).length;
+              shouldHighlight = matchCount > 0 && matchCount / significantWords.length >= 0.3;
+            }
+            
+            if (shouldHighlight) {
+              const transform = item.transform
+              const x = transform[4] * scale
+              const textHeight = (item.height || 20) * scale
+              const y = viewport.height - transform[5] * scale - textHeight
+              const textWidth = item.width * scale
 
-      toast({
-        title: "분석 완료",
-        description: `${toxicClauses.length}개의 위험 조항이 발견되었습니다.`,
-      });
+              // 하이라이트 추가 및 위치 기록
+              highlightedPositions.add(positionKey);
+              newHighlights.push({
+                text,
+                page: i,
+                position: { x, y },
+                width: textWidth,
+                height: textHeight,
+                isUserHighlight: isUser
+              })
+            }
+          })
+        })
+      }
+
+      setHighlights(newHighlights)
     } catch (error) {
+      console.error('Error processing highlights:', error)
       toast({
-        title: "분석 실패",
-        description: "위험 조항 분석 중 오류가 발생했습니다.",
+        title: "하이라이트 처리 오류",
+        description: "PDF 내 텍스트 검색 중 오류가 발생했습니다.",
         variant: "destructive",
-      });
+      })
     }
-  };
-
-  // 테스트를 위한 버튼 추가
-  const handleSearch = () => {
-    analyzeAndHighlightToxicClauses();
-  };
-
-  const uploadPdf = async (file: File) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/pdf-upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload PDF');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error uploading PDF:', error);
-      setError(error instanceof Error ? error.message : 'Failed to upload PDF');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      try {
-        const result = await uploadPdf(file);
-        console.log('PDF uploaded successfully:', result);
-        // TODO: 업로드 성공 후 처리 (예: PDF 뷰어 업데이트)
-      } catch (error) {
-        console.error('Failed to upload PDF:', error);
-      }
-    }
-  };
+  }
 
   if (isLoading) {
     return (
@@ -405,124 +172,74 @@ export function PdfViewer({ fileId, onTextSelect, url }: PdfViewerProps) {
     )
   }
 
-  const addHighlight = (highlight: CustomHighlight) => {
-    setHighlights([...highlights, highlight])
-    if (highlight.content?.text && onTextSelect) {
-      onTextSelect(highlight.content.text)
-    }
-  }
-
-  const updateHighlight = (id: string, edit: Partial<CustomHighlight>) => {
-    setHighlights(
-      highlights.map((h) => (h.id === id ? { ...h, ...edit } : h))
+  if (!url) {
+    return (
+      <div className="w-full h-full rounded-lg border flex items-center justify-center">
+        <p className="text-muted-foreground">No PDF document loaded</p>
+      </div>
     )
-  }
-
-  const handleAreaCapture = async (image: string, position: any) => {
-    try {
-      const result = await sendAreaToBackend({
-        image,
-        position,
-      })
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
-      // Update the highlight with the analysis result
-      const highlightToUpdate = highlights.find(
-        h => 
-          h.position.pageNumber === position.pageNumber &&
-          h.position.boundingRect.x1 === position.boundingRect.x1 &&
-          h.position.boundingRect.y1 === position.boundingRect.y1
-      )
-
-      if (highlightToUpdate) {
-        updateHighlight(highlightToUpdate.id, {
-          imageUrl: image,
-          comment: result.analysis,
-        })
-      }
-
-      toast({
-        title: "Analysis complete",
-        description: result.analysis || "Area has been analyzed successfully",
-      })
-    } catch (error) {
-      console.error('Error handling area capture:', error)
-      toast({
-        title: "Analysis failed",
-        description: "Failed to analyze the captured area",
-        variant: "destructive",
-      })
-    }
   }
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">PDF Viewer</h2>
-        <div className="flex items-center gap-4">
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleFileChange}
-            className="hidden"
-            id="pdf-upload"
-          />
-          <label
-            htmlFor="pdf-upload"
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
-          >
-            Upload PDF
-          </label>
-        </div>
+      <div className="flex items-center justify-between p-1 border-b">
+        <h2 className="text-sm font-medium">Finance Product PDF</h2>
       </div>
 
-      {isLoading && (
-        <div className="flex items-center justify-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-4 text-red-500">
-          {error}
-        </div>
-      )}
-
-      <div className="w-full h-full rounded-lg border relative">
-        <PdfLoader
-          document={pdfUrl}
+      <div className="w-full h-full rounded-lg relative overflow-auto p-0 border-0">
+        <Document
+          file={url}
+          onLoadSuccess={onDocumentLoadSuccess}
+          loading={<Skeleton className="w-full h-full" />}
         >
-          {(pdfDocument) => (
-            <PdfHighlighter
-              pdfDocument={pdfDocument}
-              enableAreaSelection={(event) => event.altKey}
-              highlights={highlights}
-              onSelectionFinished={(position, content) => {
-                addHighlight({
-                  id: Math.random().toString(16).slice(2),
-                  content,
-                  position,
-                  comment: "",
-                  category: "default",
-                })
-              }}
-              selectionTip={<SelectionTip />}
-              utilsRef={(_utils) => {
-                if (highlighterUtilsRef.current) {
-                  highlighterUtilsRef.current = _utils
-                }
-              }}
-            >
-              <HighlightContainer 
-                editHighlight={updateHighlight}
-                onAreaCapture={handleAreaCapture}
-              />
-            </PdfHighlighter>
-          )}
-        </PdfLoader>
+          <div className="flex flex-col items-center p-0">
+            <div className="flex items-center gap-2 mb-1">
+              <button
+                onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))}
+                disabled={pageNumber <= 1}
+                className="px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 disabled:opacity-50"
+              >
+                이전
+              </button>
+              <span className="text-sm">
+                {pageNumber} / {numPages}
+              </span>
+              <button
+                onClick={() => setPageNumber((prev) => Math.min(prev + 1, numPages))}
+                disabled={pageNumber >= numPages}
+                className="px-2 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200 disabled:opacity-50"
+              >
+                다음
+              </button>
+            </div>
+            <div className="mx-6 my-2">
+              <Page
+                pageNumber={pageNumber}
+                scale={0.99}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+              >
+                {/* 하이라이트 렌더링 - 두 가지 색상으로 표시 */}
+                {highlights
+                  .filter((h) => h.page === pageNumber)
+                  .map((highlight, index) => (
+                    <div
+                      key={index}
+                      className={`absolute opacity-50 pointer-events-none ${
+                        highlight.isUserHighlight ? 'bg-blue-300' : 'bg-yellow-200'
+                      }`}
+                      style={{
+                        left: `${highlight.position.x}px`,
+                        top: `${highlight.position.y}px`,
+                        width: `${highlight.width}px`,
+                        height: `${highlight.height}px`,
+                      }}
+                    />
+                  ))}
+              </Page>
+            </div>
+          </div>
+        </Document>
       </div>
     </div>
   )
