@@ -19,7 +19,7 @@ FinanceGuard is an financial product helper application designed to support secu
 <img src="./fig_dispute_cases.png" alt="FinanceGuard Disputes" width="400" />
 
 
-Demo video: [Watch on YouTube](https://youtu.be/2wOQsErrCi4)
+Demo video: [Watch on YouTube](https://www.youtube.com/watch?v=CxdUQ0LKCXM)
 
 ### 🧩 Tech Stack
 - **Frontend:** React.js, Next.js
