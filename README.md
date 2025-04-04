@@ -4,6 +4,9 @@
 
 FinanceGuard is an AI-powered financial product helper application designed to support secure financial activities by analyzing hidden risks in finance contracts and providing dispute insights.
 
+![FinanceGuard Main](./fig_main.png)
+![FinanceGuard Disputes](./fig_dispute_cases.png)
+
 ## Features
 
 - **Risk Analysis:** Upload your financial contract and let our AI agent detect hidden risks.
