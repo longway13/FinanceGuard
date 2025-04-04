@@ -40,7 +40,48 @@ class CustomToolNode:
     def __init__(self, tools: list) -> None:
         self.tools = tools
         self.tools_dict = {tool.name: tool for tool in tools}
+        # Initialize OpenAI client for formatting web search results
+        self.openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         
+    def format_web_search_results(self, raw_results: str) -> str:
+        """Format web search results into a conversational response"""
+        try:
+            # Load the formatting prompt
+            with open(FORMAT_PROMPT_PATH, 'r', encoding='utf-8') as f:
+                format_prompt = f.read()
+            
+            # Create a special prompt for web search formatting
+            web_search_format_prompt = """
+            You are a helpful financial assistant. Format the following web search results into a natural, 
+            conversational response. Organize information clearly and present it as if you're directly 
+            answering the user's query. Remove any raw data formatting, URLs, or metadata that would 
+            make the response seem unnatural. 
+            
+            The response should be in Korean and should not include any disclaimers or unnecessary information.
+
+            Here are the web search results to format:
+            """
+            
+            messages_for_formatting = [
+                {"role": "system", "content": web_search_format_prompt},
+                {"role": "user", "content": raw_results}
+            ]
+            
+            logger.info("Formatting web search results...")
+            
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages_for_formatting,
+                temperature=0.3,
+            )
+            
+            formatted_response = response.choices[0].message.content.strip()
+            logger.info("Successfully formatted web search results")
+            return formatted_response
+        except Exception as e:
+            logger.error(f"Error formatting web search results: {e}")
+            return f"검색 결과: {raw_results}"
+            
     def __call__(self, state):
         # Get the messages and file ID from the state
         messages = state.get("messages", [])
@@ -106,15 +147,36 @@ class CustomToolNode:
                     result = tool.invoke(final_args)
                 else:
                     result = tool.invoke(tool_args)
-                    
-                # Create a tool message
-                results.append(
-                    ToolMessage(
-                        content=json.dumps(result, ensure_ascii=False),
-                        name=tool_name,
-                        tool_call_id=tool_id,
+                
+                # For web search tool, format the results before returning
+                if tool_name == "web_search_tool":
+                    logger.info("Formatting web search results through LLM")
+                    # Convert result to string for formatting
+                    result_str = json.dumps(result, ensure_ascii=False)
+                    # Format the results through LLM
+                    formatted_result = self.format_web_search_results(result_str)
+                    # Create a tool message with formatted results
+                    results.append(
+                        ToolMessage(
+                            content=formatted_result,
+                            name=tool_name,
+                            tool_call_id=tool_id,
+                        )
                     )
-                )
+                    # Also append an assistant message to make it more conversational
+                    results.append({
+                        "role": "assistant", 
+                        "content": formatted_result
+                    })
+                else:
+                    # Create a regular tool message for other tools
+                    results.append(
+                        ToolMessage(
+                            content=json.dumps(result, ensure_ascii=False),
+                            name=tool_name,
+                            tool_call_id=tool_id,
+                        )
+                    )
             except Exception as e:
                 logger.error(f"Error executing tool {tool_name}: {e}")
                 import traceback
@@ -135,6 +197,20 @@ class CustomToolNode:
                             tool_call_id=tool_id,
                         )
                     )
+                elif tool_name == "web_search_tool":
+                    error_msg = f"검색 중 오류가 발생했습니다: {str(e)}"
+                    results.append(
+                        ToolMessage(
+                            content=error_msg,
+                            name=tool_name,
+                            tool_call_id=tool_id,
+                        )
+                    )
+                    # Add assistant message for better UX
+                    results.append({
+                        "role": "assistant", 
+                        "content": error_msg
+                    })
                 elif tool_name == "find_toxic_clauses_tool":
                     error_msg = [{"error": f"독소조항 분석 중 오류가 발생했습니다: {str(e)}"}]
                     results.append(

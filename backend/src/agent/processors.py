@@ -320,7 +320,7 @@ def process_simulation_result(content):
             "id": i,
             "situation": match.group(1).strip() if match else "",
             "user": match.group(2).strip() if match else "",
-            "agent": match.group(3).strip() if match else ""
+            "consultant": match.group(3).strip() if match else ""
         })
     
     return {
