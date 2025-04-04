@@ -75,7 +75,7 @@ python backend/app.py
 
 | Name           | Role                            | GitHub                                             |
 |--------------  |-----------------------------    |----------------------------------------------------|
-| Gwanwoo Song   | Project Manager                 | [@Song Gwanwoo](https://github.com/longway13)      |
+| Gwanwoo Song   | Project Manager                 | [@Gwanwoo Song](https://github.com/longway13)      |
 | Dongha Lim     | Backend/AI Developer            | [@Dongha Lim](https://github.com/donghalim7)       |
 | Minseok Kang   | Backend/AI Developer            | [@Minseok Kang](https://github.com/k5911839)       |
 | Yeonjoon Hwang | AI Developer                    | [@Yeonjun Hwang](https://github.com/HwangYeonjun01)|
