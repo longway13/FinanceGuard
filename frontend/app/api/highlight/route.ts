@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const { pdfId, prompt } = body;
 
     // TODO: Implement actual API call to backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/highlight`, {
+    const response = await fetch(`${process.env.BACKEND_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -3,20 +3,25 @@ from flask import Flask, request, jsonify, Response
 import langgraph
 import json
 import os
-from basic import *
+from src.tools.basic import *
 from langchain_openai import ChatOpenAI
 from langchain_teddynote.tools.tavily import TavilySearch
-from typing import Annotated
+from typing import Annotated, Dict, Any, Optional, List
 from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph, START, END
 from werkzeug.utils import secure_filename
 from langchain_core.messages import ToolMessage
 from langchain_teddynote.messages import display_message_tree
+from dotenv import load_dotenv
+from langchain.tools import tool
+from pydantic import BaseModel, Field
 
 from tavily import TavilyClient
-os.environ['OPENAI_API_KEY'] = "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"
-os.environ['TAVILY_API_KEY'] = "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"
+from ..config import FORMAT_PROMPT_PATH
+
+load_dotenv()
+
 
 global_LLm = None
 
@@ -57,7 +62,7 @@ class Tavily:
         # get_api_key("conf.d/config.yaml")
         self.llm = ChatOpenAI(model="gpt-4o-mini", max_completion_tokens=1024)
         self.tool = tool
-        self.API_KEY = "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"
+        self.API_KEY = os.getenv('TAVILY_API_KEY')
         self.tools = []
     
     def add_tool(self):
@@ -123,20 +128,6 @@ def route_tools(
     # 도구 호출이 없는 경우 "END" 반환
     return END
 
-@app.route('/', methods=['GET'])
-def index():
-    return '''
-    <html>
-    <head><title>Agent Query</title></head>
-    <body>
-        <h1>Enter your query</h1>
-        <form action="/query" method="post">
-            <input type="text" name="query" placeholder="Enter your query" required>
-            <input type="submit" value="Submit">
-        </form>
-    </body>
-    </html>
-    '''
 
 @app.route('/query', methods=['POST'])
 def query_agent():
@@ -192,11 +183,64 @@ def query_agent():
         return Response(response_data, content_type="application/json; charset=utf-8")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+    
 def chatbot(state: State):
     answer =  global_LLm.invoke(state["messages"])
     # 메시지 목록 반환
     return {"messages": [answer]}
+
+# Load format prompt from file
+with open(FORMAT_PROMPT_PATH, 'r', encoding='utf-8') as f:
+    format_prompt = f.read()
+
+# Define schema for the web search tool
+class WebSearchToolSchema(BaseModel):
+    query: str = Field(..., description="Search query to look up information on the web")
+
+@tool(args_schema=WebSearchToolSchema, description="Searches the web for up-to-date information in response to the user's query, particularly when current events, recent data, or dynamic content are needed.")
+def web_search_tool(query: str) -> Dict[str, Any]:
+    """
+    Search the web for information using the Tavily search engine.
+    
+    Args:
+        query (str): The search query string to look up on the web
+        
+    Returns:
+        Dict[str, Any]: A dictionary containing search results with titles, snippets, and URLs
+    """
+    try:
+        tavily_client = TavilyClient(api_key=os.environ.get('TAVILY_API_KEY'))
+        search_results = tavily_client.search(
+            query=query,
+            search_depth="advanced",
+            include_images=False,
+            include_raw_content=False,
+            max_results=2
+        )
+        
+        # Format the results for easier consumption
+        formatted_results = {
+            "query": query,
+            "results": []
+        }
+        
+        if "results" in search_results and isinstance(search_results["results"], list):
+            for result in search_results["results"]:
+                formatted_results["results"].append({
+                    "title": result.get("title", "No title"),
+                    "url": result.get("url", "No URL"),
+                    "content": result.get("content", "No content")
+                })
+        
+        return formatted_results
+    except Exception as e:
+        return {
+            "error": f"Web search failed: {str(e)}",
+            "query": query,
+            "results": []
+        }
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

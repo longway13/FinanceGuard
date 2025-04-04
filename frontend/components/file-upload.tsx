@@ -151,6 +151,7 @@ export function FileUpload() {
       }
 
       // 대시보드로 리다이렉트 (모든 데이터와 함께)
+      console.log(data)
       const queryParams = new URLSearchParams({
         fileUrl: data.file_url,
         summary: data.summary,
