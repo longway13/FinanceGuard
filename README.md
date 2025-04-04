@@ -15,8 +15,9 @@ FinanceGuard is an financial product helper application designed to support secu
 
 
 ### 🖼️ Demo / Screenshots
-![FinanceGuard Main](./fig_main.png)  
-![FinanceGuard Disputes](./fig_dispute_cases.png)  
+<img src="./fig_main.png" alt="FinanceGuard Main" width="400" />
+<img src="./fig_dispute_cases.png" alt="FinanceGuard Disputes" width="400" />
+
 
 Demo video: [Watch on YouTube](https://youtu.be/2wOQsErrCi4)
 
@@ -87,7 +88,6 @@ python backend/app.py
 This project is licensed under the [MIT license](https://opensource.org/licenses/MIT).  
 See the LICENSE file for more details.
 
-### 💬 Additional Notes
-- Due to some issues with the backend, only the frontend demo is currently showcased. A full demo video including backend functionality will be provided soon.
+
 
 ---
