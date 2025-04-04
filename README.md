@@ -1,74 +1,69 @@
-Below is a structured README snippet that explains how to set up and run your project using nvm and pnpm:
 
----
 
-```markdown
 # FinanceGuard
 
-FinanceGuard is a financial product helper application that leverages RAG-based AI to provide risk analysis and dispute insights for financial products. This guide will help you set up your development environment using **nvm** and **pnpm**.
+FinanceGuard is an AI-powered financial product helper application designed to support secure financial activities by analyzing hidden risks in finance contracts and providing dispute insights.
+
+## Features
+
+- **Risk Analysis:** Upload your financial contract and let our AI agent detect hidden risks.
+- **Future Risk Simulation:** Predict potential future risks and review historical dispute cases.
+- **Highlighted Risk Elements:** Key risk elements related to your queries are highlighted in contract PDFs.
+
+## Technologies Used
+
+- **AI Tools:** Langraph, Langchain, Upstage Document_parse, Tavily, Kure (Embedding Model)
+- **Frontend:** React.js, Next.js
 
 ## Prerequisites
 
-- **nvm (Node Version Manager)**: Ensure you have nvm installed. If not, follow the installation instructions on the [nvm GitHub repository](https://github.com/nvm-sh/nvm).
-- **Node.js**: We recommend using the latest version.
-- **pnpm**: Our project uses pnpm as its package manager for faster and more efficient dependency management.
+### Frontend Setup
 
-## Installation
+- **nvm (Node Version Manager):** Ensure you have nvm installed. For installation instructions, refer to the [nvm GitHub repository](https://github.com/nvm-sh/nvm).
+- **Node.js:** It is recommended to use the latest version.
+- **pnpm:** We use pnpm for faster and more efficient dependency management.
 
-### 1. Install Node.js with nvm
+## Installation and Running
+
+### 1. Install Node.js Using nvm
 
 To install the latest version of Node.js, run:
-
 ```bash
 nvm install node
 ```
-
 After installation, verify your Node.js version:
-
 ```bash
 node -v
 ```
 
-### 2. Install pnpm
+### 2. Install pnpm Globally
 
-Install pnpm globally by running:
-
+Install pnpm globally using npm:
 ```bash
 npm install -g pnpm
 ```
-
-Verify pnpm installation:
-
+Verify the installation:
 ```bash
 pnpm -v
 ```
 
 ### 3. Install Project Dependencies
 
-With Node.js and pnpm installed, install the required packages for the project:
-
+In the frontend directory, install the required packages:
 ```bash
 pnpm install
 ```
 
-## Running the Project
+### 4. Run the Frontend Server
 
-Start the development server with:
-
+Start the development server:
 ```bash
 pnpm dev
 ```
 
+## Run the Backend Server
 
-## Troubleshooting
-
-- Ensure you are using the correct Node.js version (use `nvm use <version>` if needed).
-- If dependencies fail to install, try clearing the pnpm cache or reinstalling pnpm.
-- For further assistance, consult the project documentation or reach out via the issue tracker.
-
-Happy coding!
+From the project root directory, start the backend server:
+```bash
+python backend/app.py
 ```
-
----
-
-This Markdown text clearly explains the required steps, commands, and context for setting up and running your project using nvm and pnpm.
