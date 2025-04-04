@@ -1,74 +1,93 @@
+Below is the reformatted README in accordance with the requested guideline:
+
+---
+
+# 🛠️ FinanceGuard
+
+### 📌 Overview
+FinanceGuard is an financial product helper application designed to support secure financial activities by analyzing hidden risks in finance contracts and providing dispute insights. The project aims to help users easily identify hidden risks in their financial contracts and access valuable dispute resolution insights.
+
+### 🚀 Key Features
+- ✅ **Risk Analyslis:** Upoad your financial contract and let our AI agent detect hidden risks. 
+- ✅ **Future Risk Simulation:** Anticipate potential risks and explore the scenarios you might encounter.
+- ✅ **Highlighted Risk Elements:** 👉 Key risk elements are visually emphasized within your contract PDFs, making them instantly recognizable.
+- ✅ **Dispute Cases:** Access historical dispute cases related to your financial product contracts.
 
 
-# FinanceGuard
+### 🖼️ Demo / Screenshots
+![FinanceGuard Main](./fig_main.png)  
+![FinanceGuard Disputes](./fig_dispute_cases.png)  
 
-FinanceGuard is an AI-powered financial product helper application designed to support secure financial activities by analyzing hidden risks in finance contracts and providing dispute insights.
+Demo video: [Watch on YouTube](https://youtu.be/2wOQsErrCi4)
 
-<img src="./fig_main.png" alt="FinanceGuard Main" width="600" />
-<img src="./fig_dispute_cases.png" alt="FinanceGuard Disputes" width="600" />
-
-Due to some issues with the backend, we are currently showcasing only the frontend demo. We plan to update with a full demo video soon.🔥
-Link : https://youtu.be/2wOQsErrCi4
-## Features
-
-- **Risk Analysis:** Upload your financial contract and let our AI agent detect hidden risks.
-- **Future Risk Simulation:** Predict potential future risks and review historical dispute cases.
-- **Highlighted Risk Elements:** Key risk elements related to your queries are highlighted in contract PDFs.
-
-## Technologies Used
-
-- **AI Tools:** Langraph, Langchain, Upstage Document_parse, Tavily, Kure (Embedding Model)
+### 🧩 Tech Stack
 - **Frontend:** React.js, Next.js
+- **Backend:** Python, Flask
+- **AI Tools:** Langraph, Langchain, Upstage Document_parse, Tavily, Kure (Embedding Retriever Model)
+- **Others:** Node.js, pnpm, nvm
 
-## Prerequisites
+### 🏗️ Project Structure
+```
+📁 FinanceGuard/
+├── frontend/
+├── backend/
+├── assets/         # Images and figures
+├── README.md
+└── ...
+```
 
-### Frontend Setup
+### 🔧 Setup & Installation
 
-- **nvm (Node Version Manager):** Ensure you have nvm installed. For installation instructions, refer to the [nvm GitHub repository](https://github.com/nvm-sh/nvm).
-- **Node.js:** It is recommended to use the latest version.
-- **pnpm:** We use pnpm for faster and more efficient dependency management.
-
-## Installation and Running
-
-### 1. Install Node.js Using nvm
-
-To install the latest version of Node.js, run:
+#### Frontend Setup
 ```bash
+# From the frontend directory, start the frontend server
+# Install Node.js using nvm
 nvm install node
-```
-After installation, verify your Node.js version:
-```bash
 node -v
-```
 
-### 2. Install pnpm Globally
-
-Install pnpm globally using npm:
-```bash
+# Install pnpm globally
 npm install -g pnpm
-```
-Verify the installation:
-```bash
 pnpm -v
-```
 
-### 3. Install Project Dependencies
-
-In the frontend directory, install the required packages:
-```bash
+# Move to the frontend directory and install dependencies
+cd frontend
 pnpm install
-```
 
-### 4. Run the Frontend Server
-
-Start the development server:
-```bash
+# Start the frontend development server
 pnpm dev
 ```
 
-## Run the Backend Server
-
-From the project root directory, start the backend server:
+#### Backend Setup
 ```bash
+# From the project root, start the backend server
 python backend/app.py
 ```
+
+### 📁 Dataset & References
+- **Dataset Used:** The application processes user-uploaded financial contracts.
+- **References / Resources:**  
+  [Law Disputes Repositiory](https://www.aihub.or.kr/aihubdata/data/view.do?currMenu=&topMenu=&aihubDataSe=data&dataSetSn=71610 ))
+  [Financial Supervisory Service Disputes DB](https://www.fss.or.kr/fss/job/fvsttPrcdnt/list.do?menuNo=200179)
+  
+  
+### 🙌 Team Members
+
+| Name          | Role                            | GitHub                                         |
+|-------------- |-----------------------------    |------------------------------------------------|
+| Song Gwanwoo  | Project Manager                 | [@Song Gwanwoo](https://github.com/longway13)  |
+| Dongha Lim    | Backend/AI Developer            | [@parkstage](https://github.com/donghalim7)    |
+| Minseok Kang  | Backend/AI Developer            | [@parkstage](https://github.com/k5911839)      |
+| Yunjoon Hwang | AI Developer                    | [@parkstage](https://github.com/HwangYeonjun01)|
+
+### ⏰ Development Period
+- Started     : 2025-03-29
+- Last updated: 2025-04-04
+
+### 📄 License
+This project is licensed under the [MIT license](https://opensource.org/licenses/MIT).  
+See the LICENSE file for more details.
+
+### 💬 Additional Notes
+- Due to some issues with the backend, only the frontend demo is currently showcased. A full demo video including backend functionality will be provided soon.
+
+---
