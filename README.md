@@ -59,10 +59,23 @@ pnpm dev
 ```
 
 #### Backend Setup
-```bash
-# From the project root, start the backend server
-python backend/app.py
-```
+1. **Dataset Setup:**
+   - Download the dataset from the following link: [Dataset](https://drive.google.com/drive/folders/1ooK6OK98GsHZ2eUm2GEqsyjdI-dj6bIx)
+   - Place the downloaded dataset files into the `backend` directory.
+
+2. **Install Dependencies:**
+   - Install the required Python packages:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+3. **Run the Backend Server:**
+   - From the project root (or within the `backend` directory), start the backend server by running:
+     ```bash
+     python backend/app.py
+
+
+
 
 ### 📁 Dataset & References
 - **Dataset Used:** The application processes user-uploaded financial contracts.
