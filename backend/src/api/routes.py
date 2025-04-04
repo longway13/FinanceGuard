@@ -216,9 +216,7 @@ def upload_pdf():
                 "lockupPeriod": summary["lockupPeriod"],
                 "riskLevel": summary["riskLevel"]
             },
-            "key_findings": [
-                summary["key_findings"]
-            ],
+            "key_findings": summary["key_findings"],
             "highlights": converted  # 원본 객체를 그대로 사용
         }
         pdf_counter += 1
