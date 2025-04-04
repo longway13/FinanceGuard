@@ -8,7 +8,7 @@ FinanceGuard is an AI-powered financial product helper application designed to s
 <img src="./fig_dispute_cases.png" alt="FinanceGuard Disputes" width="600" />
 
 Due to some issues with the backend, we are currently showcasing only the frontend demo. We plan to update with a full demo video soon.🔥
-
+Link : https://youtu.be/2wOQsErrCi4
 ## Features
 
 - **Risk Analysis:** Upload your financial contract and let our AI agent detect hidden risks.
