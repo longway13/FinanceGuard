@@ -7,11 +7,11 @@
 FinanceGuard is an financial product helper application designed to support secure financial activities by analyzing hidden risks in finance contracts and providing dispute insights. The project aims to help users easily identify hidden risks in their financial contracts and access valuable dispute resolution insights.
 
 ### 🚀 Key Features
-- ✅ **Risk Analyslis:** Upoad your financial contract and let our AI agent detect hidden risks. 
-- ✅ **Future Risk Simulation:** Anticipate potential risks and explore the scenarios you might encounter.
+- ✅ **Risk Analyslis:** 👉 Upoad your financial contract and let our AI agent detect hidden risks. 
+- ✅ **Future Risk Simulation:** 👉 Anticipate potential risks and explore the scenarios you might encounter.
 - ✅ **Highlighted Risk Elements:** 👉 Key risk elements are visually emphasized within your contract PDFs, making them instantly recognizable.
-- ✅ **Dispute Cases:** Access historical dispute cases related to your financial product contracts.
-- ✅ **Real-Time Financial Insights:** Ask for the latest financial information and receive up-to-date answers sourced from real-time web data.
+- ✅ **Dispute Cases:** 👉 Access historical dispute cases related to your financial product contracts.
+- ✅ **Real-Time Financial Insights:** 👉 Ask for the latest financial information and receive up-to-date answers sourced from real-time web data.
 
 
 ### 🖼️ Demo / Screenshots
