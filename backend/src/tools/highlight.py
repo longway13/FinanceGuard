@@ -256,6 +256,7 @@ class ToxicClauseFinder:
                     
                     result = response.choices[0].message.content
                     logger.info("Received response from LLM")
+                    # print("Result****", result)
                     break
                 except Exception as e:
                     logger.error(f"LLM call error (attempt {retry_count+1}): {str(e)}")
@@ -268,6 +269,7 @@ class ToxicClauseFinder:
             
             # Process the result
             try:
+                # print("Raw LLM response:", result)  
                 # Remove code block markers if they exist
                 result = result.replace('```json', '').replace('```', '').strip()
                 
@@ -281,31 +283,47 @@ class ToxicClauseFinder:
                     
                 # JSON 부분만 추출
                 json_str = result[start_idx:end_idx]
+                # print("Extracted JSON string:", json_str)
+                # print("=" * 20)
                 
                 parsed_result = json.loads(json_str)
                 if not isinstance(parsed_result, list):
                     logger.error("Parsed result is not a list")
                     return []
                 
+                print("Parsed result:", parsed_result)
+                print("=" * 20)
+                
                 logger.info("Finding similar cases...")
                 # 결과 재구성 - 키 순서 변경
                 reordered_result = []
+                
+                # Find the explanation item first
+                rationale_item = parsed_result[-1]["친절한_설명"]
+                parsed_result = parsed_result[:-1]  
+                
+
                 for item in parsed_result:
                     try:
-                        if not isinstance(item, dict) or "독소조항" not in item:
-                            continue
+                        # Skip non-dictionary items or items without 독소조항
+                        # if not isinstance(item, dict) or "독소조항" not in item:
+                        #     continue
+                            
+                        # # Skip the item if it's the friendly explanation item
+                        # if "친절한_설명" in item and len(item) == 1:
+                        #     continue
                             
                         similar_case = self.case_retriever.find_similar_case(item["독소조항"])
-                        # Format the case details
+
                         formatted_case = self.format_case(str(similar_case["case"]))
                         
                         reordered_item = {
                             "독소조항": item["독소조항"],
-                            "이유": item["이유"],
+                            # "이유": item["이유"],
                             "유사판례_정리": formatted_case,
                             "유사판례_원문": similar_case["case"],
                             "유사도": similar_case["similarity_score"],
-                            "친절한_설명": item["친절한_설명"]
+                            "친절한_설명": rationale_item
                         }
                         
                         reordered_result.append(reordered_item)
