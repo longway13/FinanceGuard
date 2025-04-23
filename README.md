@@ -90,7 +90,7 @@ pnpm dev
 |--------------  |-----------------------------    |----------------------------------------------------|
 | Gwanwoo Song   | Project Manager                 | [@Gwanwoo Song](https://github.com/longway13)      |
 | Dongha Lim     | Backend/AI Developer            | [@Dongha Lim](https://github.com/donghalim7)       |
-| Minseok Kang   | Backend/AI Developer            | [@Minseok Kang](https://github.com/k5911839)       |
+| Minseok Kang   | Backend/AI Developer            | [@Minseok Kang](https://github.com/k59118)       |
 | Yeonjoon Hwang | AI Developer                    | [@Yeonjun Hwang](https://github.com/HwangYeonjun01)|
 
 ### ⏰ Development Period
